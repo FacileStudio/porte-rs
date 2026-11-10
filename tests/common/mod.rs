@@ -12,6 +12,8 @@ pub mod http;
 pub mod idp;
 #[cfg(feature = "oidc")]
 pub mod kit;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 pub mod memory;
 #[cfg(feature = "oidc")]
 pub mod provider;
