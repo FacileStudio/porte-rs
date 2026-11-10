@@ -11,7 +11,8 @@ use super::{Client, DEFAULT_INTERVAL, DirectoryError, Snapshot};
 
 const DEBOUNCE: Duration = Duration::from_secs(2);
 
-/// Writes a snapshot into the app's tables. Called once per new version.
+/// Writes a snapshot into the app's tables. Called once per new version. Never hard-delete the data
+/// of a space the snapshot no longer lists: move it to the trash (see the module docs).
 #[async_trait::async_trait]
 pub trait Apply: Send + Sync {
     /// Applies the whole snapshot, in one transaction.

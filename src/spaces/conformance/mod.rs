@@ -1,4 +1,4 @@
-//! A port of Go `spacestest.Conformance`: run it against the app's [`Store`] in a test.
+//! A port of Go `spacestest.Conformance`: run it against the app's [`Store`](super::Store) in a test.
 //!
 //! ```ignore
 //! let result = porte::spaces::conformance::run(|| async { fresh_store().await }).await;

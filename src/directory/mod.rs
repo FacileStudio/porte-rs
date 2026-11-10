@@ -4,6 +4,15 @@
 //! Registre owns spaces. An app pulls `GET {issuer}/api/directory/snapshot` with its own client
 //! credentials, applies it to its tables through [`Apply`], and mounts the nudge at
 //! [`SYNC_PATH`] and the deletion receiver at [`DELETIONS_PATH`].
+//!
+//! # A snapshot is authoritative
+//!
+//! Applying a [`Snapshot`] makes the app's tables match it: a space that is missing from it is
+//! gone, whatever the reason. A Registre bug, a partial outage or an operator mistake can drop a
+//! space from one snapshot and bring it back in the next. So an [`Apply`] must never hard-delete
+//! a space's data when the space disappears. Move that data to the trash instead (mark it
+//! trashed, hide it, keep it restorable), and purge the trash on its own retention schedule.
+//! Membership rows can follow the snapshot directly; the content they guard cannot.
 
 mod client;
 mod deletions;
