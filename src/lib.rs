@@ -19,8 +19,16 @@ mod store_traits;
 pub mod token;
 pub mod wire;
 
+#[cfg(feature = "net")]
+pub mod http_client;
+#[cfg(feature = "oidc")]
+pub mod jwt;
+#[cfg(feature = "oidc")]
+pub mod oidc;
 #[cfg(feature = "pg")]
 pub mod pg;
+#[cfg(feature = "net")]
+mod rs256;
 
 use std::time::Duration;
 

@@ -1,6 +1,6 @@
 [package]
 name = "porte"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.98"
 description = "Registre sign-in, sessions, spaces and MCP auth for Facile Suite Rust apps, a port of Go porte"
@@ -10,6 +10,8 @@ publish = false
 [features]
 default = []
 pg = ["dep:sqlx", "dep:aes-gcm", "dep:hkdf"]
+net = ["dep:reqwest", "dep:rsa", "dep:tokio"]
+oidc = ["net", "dep:openidconnect"]
 
 [dependencies]
 async-trait = "0.1.92"
@@ -19,16 +21,20 @@ getrandom = "0.4.3"
 http = "1.5.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
-sha2 = "0.11.1"
+sha2 = { version = "0.11.1", features = ["oid"] }
 subtle = "2.6.1"
 thiserror = "2.0.21"
 time = "0.3.55"
+tokio = { version = "1.54.1", optional = true, features = ["sync", "time", "macros"] }
 tower = "0.5.3"
 tracing = "0.1.44"
 tronc = { git = "file:///home/yann/Code/Facile/tronc-rs", tag = "v0.2.0", features = ["http"] }
 aes-gcm = { version = "0.11.1", optional = true }
 hkdf = { version = "0.13.0", optional = true }
+openidconnect = { version = "4.1.0", optional = true, default-features = false }
 percent-encoding = "2.3.2"
+reqwest = { version = "0.13.5", optional = true, default-features = false, features = ["rustls"] }
+rsa = { version = "0.10.0", optional = true, default-features = false, features = ["std", "pkcs1v15"] }
 sqlx = { version = "0.9.0", optional = true, default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "time", "json"] }
 url = "2.5.8"
 
@@ -42,3 +48,10 @@ tronc = { git = "file:///home/yann/Code/Facile/tronc-rs", tag = "v0.2.0", featur
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "migrate"] }
 async-trait = "0.1.92"
 serde_json = "1.0.154"
+url = "2.5.8"
+rsa = { version = "0.10.0", default-features = false, features = ["std", "pkcs1v15", "encoding"] }
+base64 = "0.23.1"
+
+[[example]]
+name = "signin"
+required-features = ["pg", "oidc"]
