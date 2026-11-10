@@ -3214,8 +3214,8 @@ dependencies = [
 
 [[package]]
 name = "tronc"
-version = "0.2.0"
-source = "git+file:///home/yann/Code/Facile/tronc-rs?tag=v0.2.0#bf23be08927c5035ada680d30aceb42309d7113e"
+version = "0.3.0"
+source = "git+file:///home/yann/Code/Facile/tronc-rs?tag=v0.3.0#e570296503f2643fe1d567d36368aac6ce923fca"
 dependencies = [
  "axum",
  "flate2",
