@@ -156,3 +156,21 @@ async fn reseal_seals_plaintext_rows_once() {
     assert_eq!(read.tokens.refresh_token, "r");
     assert!(plain.reseal_identities().await.is_err());
 }
+
+#[tokio::test]
+async fn find_by_user_returns_the_subject_at_one_provider() {
+    let Some(pool) = pool().await else { return };
+    let store = Store::new(pool.clone());
+    let subject = unique("s");
+    let user = store.users().upsert_from_oidc(&claims(&subject, &unique("f@x.test"), true)).await.unwrap();
+    sqlx::query("INSERT INTO porte_identities (user_id, provider, subject) VALUES ($1, 'local', $2)")
+        .bind(user)
+        .bind(user.to_string())
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(store.find_by_user(ISSUER, user).await.unwrap(), (ISSUER.to_owned(), subject));
+    assert_eq!(store.find_by_user("local", user).await.unwrap(), ("local".to_owned(), user.to_string()));
+    assert!(matches!(store.find_by_user("https://other.test", user).await, Err(StoreError::NotFound)));
+    assert!(matches!(store.find_by_user(ISSUER, i64::MAX).await, Err(StoreError::NotFound)));
+}

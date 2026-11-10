@@ -11,7 +11,9 @@ use time::OffsetDateTime;
 pub struct Identity {
     /// Matches `porte_users.id`.
     pub user_id: i64,
-    /// The issuer's subject, set on the bearer-JWT path.
+    /// The issuer's subject, set on the bearer-JWT path and empty on a cookie or opaque session,
+    /// as in Go porte. For a cookie session, `pg::Store::find_by_user(issuer, user_id)` reads it
+    /// from `porte_identities`.
     pub subject: String,
     /// The address, set on the bearer-JWT path.
     pub email: String,

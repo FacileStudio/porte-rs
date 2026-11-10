@@ -67,3 +67,18 @@ impl IdentityStore for Store {
         rows.iter().map(|row| identity(row, self.sealer.as_deref()).map_err(StoreError::other)).collect()
     }
 }
+
+impl Store {
+    /// The `(provider, subject)` that `user_id` signs in with at `provider`, from
+    /// `porte_identities`, or [`StoreError::NotFound`]. An account holds at most one identity per
+    /// provider, so the answer is unique. Pass the issuer to get the Registre subject of a
+    /// cookie session, where [`crate::Identity::subject`] is empty as in Go porte.
+    pub async fn find_by_user(&self, provider: &str, user_id: i64) -> Result<(String, String), StoreError> {
+        let row = sqlx::query_as("SELECT provider, subject FROM porte_identities WHERE provider = $1 AND user_id = $2")
+            .bind(provider)
+            .bind(user_id)
+            .fetch_optional(&self.pool)
+            .await;
+        row.map_err(StoreError::other)?.ok_or(StoreError::NotFound)
+    }
+}
