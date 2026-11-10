@@ -43,3 +43,9 @@ impl JwtError {
         !matches!(self, JwtError::Fetch(_) | JwtError::Config(_))
     }
 }
+
+impl From<crate::jose::Malformed> for JwtError {
+    fn from(_: crate::jose::Malformed) -> JwtError {
+        JwtError::Malformed
+    }
+}

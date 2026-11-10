@@ -3,8 +3,6 @@
 //! [`HttpClient::new`] is `reqwest` with redirects off and a 10 s timeout. A test hands in its
 //! own [`Transport`] to answer for a fake issuer such as `https://sso.test`.
 
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -65,9 +63,11 @@ impl Default for HttpClient {
     }
 }
 
+#[cfg(feature = "oidc")]
 impl<'c> openidconnect::AsyncHttpClient<'c> for HttpClient {
     type Error = TransportError;
-    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, TransportError>> + Send + 'c>>;
+    type Future =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<HttpResponse, TransportError>> + Send + 'c>>;
 
     fn call(&'c self, request: HttpRequest) -> Self::Future {
         Box::pin(self.send(request))

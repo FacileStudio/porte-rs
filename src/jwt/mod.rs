@@ -5,14 +5,12 @@
 
 pub(crate) mod claims;
 mod discover;
-mod error;
 pub(crate) mod keys;
-pub(crate) mod segments;
 
 use std::time::Duration;
 
+pub use crate::jwt_error::JwtError;
 pub use claims::{Claims, Profile};
-pub use error::JwtError;
 
 use crate::Clock;
 use crate::http_client::HttpClient;
@@ -63,7 +61,7 @@ impl Verifier {
 
     /// The claims of a valid token, or why it was refused.
     pub async fn verify(&self, raw: &str) -> Result<Claims, JwtError> {
-        let token = segments::split(raw)?;
+        let token = crate::jose::split(raw)?;
         if token.header.alg != "RS256" {
             return Err(JwtError::Algorithm(token.header.alg));
         }

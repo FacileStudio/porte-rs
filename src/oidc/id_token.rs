@@ -6,9 +6,8 @@ use time::OffsetDateTime;
 
 use crate::Clock;
 use crate::http_client::HttpClient;
-use crate::jwt::claims::audience;
+use crate::jose::{audience, decode_object, split};
 use crate::jwt::keys::KeyCache;
-use crate::jwt::segments::{decode_object, split};
 
 const NBF_LEEWAY: Duration = Duration::from_secs(5 * 60);
 

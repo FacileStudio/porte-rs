@@ -61,3 +61,13 @@ async fn owner(conn: &mut PgConnection, provider: &str, subject: &str) -> Result
         .await
         .map_err(StoreError::other)
 }
+
+#[cfg(feature = "directory")]
+#[async_trait::async_trait]
+impl crate::directory::IdentityEraser for Store {
+    async fn erase_identity(&self, provider: &str, subject: &str) -> Result<(), crate::directory::DirectoryError> {
+        Store::erase_identity(self, provider, subject)
+            .await
+            .map_err(|error| crate::directory::DirectoryError::Failed(error.to_string()))
+    }
+}

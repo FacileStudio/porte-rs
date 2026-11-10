@@ -77,18 +77,9 @@ struct Actor {
 pub(crate) type Text = Option<String>;
 
 pub(crate) fn parse(bytes: &[u8]) -> Result<Payload, JwtError> {
-    let mut payload: Payload = super::segments::decode_object(bytes)?;
-    payload.audience = audience(payload.aud.take())?;
+    let mut payload: Payload = crate::jose::decode_object(bytes)?;
+    payload.audience = crate::jose::audience(payload.aud.take())?;
     Ok(payload)
-}
-
-pub(crate) fn audience(value: Option<Value>) -> Result<Vec<String>, JwtError> {
-    match value {
-        None => Ok(Vec::new()),
-        Some(Value::Null) => Ok(vec![String::new()]),
-        Some(Value::String(one)) => Ok(vec![one]),
-        Some(many) => serde_json::from_value(many).map_err(|_| JwtError::Malformed),
-    }
 }
 
 impl Payload {

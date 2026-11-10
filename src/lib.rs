@@ -19,16 +19,24 @@ mod store_traits;
 pub mod token;
 pub mod wire;
 
+#[cfg(feature = "directory")]
+pub mod directory;
 #[cfg(feature = "net")]
 pub mod http_client;
+#[cfg(feature = "net")]
+mod jose;
 #[cfg(feature = "oidc")]
 pub mod jwt;
+#[cfg(feature = "oidc")]
+mod jwt_error;
 #[cfg(feature = "oidc")]
 pub mod oidc;
 #[cfg(feature = "pg")]
 pub mod pg;
 #[cfg(feature = "net")]
 mod rs256;
+#[cfg(feature = "spaces")]
+pub mod spaces;
 
 use std::time::Duration;
 
