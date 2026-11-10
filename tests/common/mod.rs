@@ -17,8 +17,10 @@ pub mod memory;
 pub mod provider;
 #[cfg(feature = "oidc")]
 pub mod provider_endpoints;
+#[cfg(feature = "directory")]
+pub mod registre;
 pub mod revocations;
-#[cfg(feature = "oidc")]
+#[cfg(any(feature = "oidc", feature = "directory"))]
 pub mod sign;
 #[cfg(feature = "oidc")]
 pub mod stores;

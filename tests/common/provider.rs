@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use porte::http_client::{HttpClient, HttpRequest, HttpResponse, Transport, TransportError};
 use serde_json::{Value, json};
 
-use super::provider_endpoints::{answer, merge};
-use super::sign::{jwks, now, sign};
+use super::provider_endpoints::answer;
+use super::sign::{jwks, merge, now, sign};
 
 pub const ISSUER: &str = "https://idp.test";
 pub const CLIENT_ID: &str = "app-client";

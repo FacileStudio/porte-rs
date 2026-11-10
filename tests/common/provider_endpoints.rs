@@ -69,17 +69,6 @@ impl Provider {
     }
 }
 
-pub fn merge(target: &mut Value, extra: Value) {
-    if let Value::Object(extra) = extra {
-        for (key, value) in extra {
-            match value {
-                Value::Null => target.as_object_mut().unwrap().remove(&key),
-                value => target.as_object_mut().unwrap().insert(key, value),
-            };
-        }
-    }
-}
-
 pub fn answer(status: u16, body: Value) -> HttpResponse {
     let response = http::Response::builder().status(status).header("content-type", "application/json");
     response.body(serde_json::to_vec(&body).unwrap()).unwrap()

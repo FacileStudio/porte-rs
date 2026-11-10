@@ -5,6 +5,9 @@ mod common;
 mod backchannel;
 #[path = "conformance/csrf.rs"]
 mod csrf;
+#[cfg(feature = "directory")]
+#[path = "conformance/directory_snapshot.rs"]
+mod directory_snapshot;
 #[cfg(feature = "oidc")]
 #[path = "conformance/jwt.rs"]
 mod jwt;
@@ -24,3 +27,6 @@ mod scope_gate;
 #[cfg(feature = "pg")]
 #[path = "conformance/sealer.rs"]
 mod sealer;
+#[cfg(feature = "spaces")]
+#[path = "conformance/spaces_ladder.rs"]
+mod spaces_ladder;

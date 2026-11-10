@@ -32,3 +32,14 @@ pub fn jwks() -> Value {
 pub fn now() -> i64 {
     time::OffsetDateTime::now_utc().unix_timestamp()
 }
+
+pub fn merge(target: &mut Value, extra: Value) {
+    if let Value::Object(extra) = extra {
+        for (key, value) in extra {
+            match value {
+                Value::Null => target.as_object_mut().unwrap().remove(&key),
+                value => target.as_object_mut().unwrap().insert(key, value),
+            };
+        }
+    }
+}
