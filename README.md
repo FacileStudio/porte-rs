@@ -35,12 +35,11 @@ test vectors generated from Go `porte` v0.16.1.
 
 ## Install
 
-Pin a tag and pick features. Nothing is on by default. Until the repo is pushed, a sibling
-app points at the local checkout with `git = "file:///home/yann/Code/Facile/porte-rs"`.
+Pin a tag and pick features. Nothing is on by default.
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.5.0", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.5.1", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
 ```
 
 | Feature | Modules |
@@ -79,6 +78,10 @@ The app's first migration carries `porte::pg::SCHEMA` verbatim.
 | [Configuration](docs/configuration.md) | Every `Config` field, the variables it reads, and its traps |
 | [Development](docs/development.md) | Local setup, the quality gate, vectors, versioning |
 | [API](docs/api.md) | Every public item, module by module |
+
+## License
+
+porte-rs is licensed under the [MIT License](LICENSE), like Go porte.
 
 ---
 

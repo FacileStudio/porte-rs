@@ -6,6 +6,13 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-10
+
+### Changed
+
+- tronc-rs is fetched from https://github.com/FacileStudio/tronc-rs instead of a local checkout.
+- Licensed under MIT, like Go porte.
+
 ## [0.5.0] - 2026-11-10
 
 ### Changed

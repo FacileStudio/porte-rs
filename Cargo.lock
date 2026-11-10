@@ -1894,7 +1894,7 @@ dependencies = [
 
 [[package]]
 name = "porte"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -3321,7 +3321,7 @@ dependencies = [
 [[package]]
 name = "tronc"
 version = "0.3.0"
-source = "git+file:///home/yann/Code/Facile/tronc-rs?tag=v0.3.0#e570296503f2643fe1d567d36368aac6ce923fca"
+source = "git+https://github.com/FacileStudio/tronc-rs?tag=v0.3.0#e570296503f2643fe1d567d36368aac6ce923fca"
 dependencies = [
  "axum",
  "base64 0.23.1",

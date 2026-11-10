@@ -7,8 +7,8 @@ How to build, test and release the crate, and how the Go test vectors stay in st
 - Rust 1.98 or later (`rust-version` in `Cargo.toml`), with `rustfmt` and `clippy`
 - Docker and `pg_isready` (psql 16 or later), for the scratch Postgres the database tests use
 - `filet` 0.18 or later, and `lefthook` through `mise install`
-- A sibling checkout of `tronc-rs` at `~/Code/Facile/tronc-rs` with its tag `v0.2.0`: until the
-  repos are pushed, `Cargo.toml` reads it through a `file://` git URL
+- Network access to https://github.com/FacileStudio/tronc-rs, which `Cargo.toml` pins at tag
+  `v0.3.0`
 
 ## Setup
 
