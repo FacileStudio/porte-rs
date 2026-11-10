@@ -23,7 +23,7 @@ impl Config { from_vars(&tronc::env::Vars), enabled, claims_enabled, https, idle
     resolved, validate -> Result<(), ConfigError>, login_failure(reason), app_label, logo }
 pub struct ConfigError(pub String);
 
-pub struct Identity { user_id: i64, subject, email, email_verified: bool, name, roles: Vec<String>,
+pub struct Identity { user_id: i64, subject /* bearer only, empty on a cookie */, email, email_verified: bool, name, roles: Vec<String>,
     scopes: Vec<String>, actor: String, session_id: i64, roles_synced_at: Option<OffsetDateTime> }
 impl Identity { has_role(&str), has_any_role(&[&str]) }
 impl FromRequestParts, OptionalFromRequestParts for Identity   // 401 "missing auth"
@@ -132,6 +132,7 @@ impl Store {
     pub fn users / identities / sessions / login_codes(&self) -> Arc<dyn Trait>;
     pub async fn erase_identity(&self, provider, subject) -> Result<(), StoreError>;
     pub async fn reseal_identities(&self) -> Result<u64, StoreError>;
+    pub async fn find_by_user(&self, provider, user_id) -> Result<(String, String), StoreError>;  // (provider, subject), NotFound
 }
 pub struct TokenSealer;
 impl TokenSealer { new(&[[u8; 32]]), parse(spec) -> Result<Option<Self>, ConfigError>, seal(plain), open(stored) }
@@ -218,7 +219,7 @@ pub struct Member { subject /* "sub" */, email, name, picture, role }
 pub struct Person { subject /* "sub" */, entitlements: HashMap<String, Value> }
 pub struct Deleted { subject, deleted_at: OffsetDateTime }
 
-#[async_trait] pub trait Apply { async fn apply(&self, &Snapshot) -> Result<(), DirectoryError> }
+#[async_trait] pub trait Apply { async fn apply(&self, &Snapshot) -> Result<(), DirectoryError> }  // authoritative: trash, never delete
 pub struct Syncer;  // Clone
 impl Syncer { pub fn new(client, apply: Arc<dyn Apply>, interval) -> Syncer;
     pub fn nudge_route<S>(&self) -> MethodRouter<S>; pub fn nudge(&self);
@@ -268,6 +269,9 @@ pub enum VerifyError { InvalidToken, Unavailable }
 pub struct Verifier;
 impl Verifier { pub async fn new(cfg: Config) -> Result<Verifier, ConfigError>;
     pub async fn verify(&self, raw: &str) -> Result<TokenInfo, VerifyError> }
+impl tronc::mcp::Verifier for Verifier;                  // Arc<Verifier> goes straight into tronc::mcp::Options
+impl From<TokenInfo> for tronc::mcp::TokenInfo;          // extra: EXTRA_CLIENT_ID, EXTRA_ACTOR; expires_at: exp
+impl From<VerifyError> for tronc::mcp::VerifyError;      // InvalidToken → Invalid, Unavailable → Unavailable
 pub struct TokenInfo { user_id: String, scopes, expiration: OffsetDateTime, client_id, actor, subject }  // extractor
 pub const BULLE_CLIENT_ID: &str = "bulle";
 pub fn third_party(info: Option<&TokenInfo>) -> bool;   // false only for act + client_id "bulle"

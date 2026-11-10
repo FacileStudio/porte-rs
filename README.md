@@ -29,7 +29,7 @@ test vectors generated from Go `porte` v0.16.1.
 
 | Layer | Tech |
 |---|---|
-| Runtime | Rust 1.98, edition 2024, axum 0.8, tower 0.5, [tronc-rs](https://github.com/FacileStudio/tronc-rs) 0.2 |
+| Runtime | Rust 1.98, edition 2024, axum 0.8, tower 0.5, [tronc-rs](https://github.com/FacileStudio/tronc-rs) 0.3 |
 | Storage | PostgreSQL 16 through sqlx 0.9 (feature `pg`) |
 | OIDC | openidconnect 4 for discovery, reqwest 0.13 with rustls, RSA 0.10 (feature `oidc`) |
 
@@ -40,7 +40,7 @@ app points at the local checkout with `git = "file:///home/yann/Code/Facile/port
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.4.0", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.5.0", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
 ```
 
 | Feature | Modules |
@@ -50,7 +50,7 @@ porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.4.0", feat
 | `oidc` | `oidc` (the Registre kit), `jwt`, `http_client` |
 | `directory` | `directory`: the snapshot client, `Syncer`, `Deletions`, `http_client` |
 | `spaces` | `spaces`: `Guard`, `Ladder`, the `Store` trait and `spaces::conformance` |
-| `mcp` | `mcpauth`: `Verifier`, `RequireLayer`, the metadata route (pulls in `oidc`) |
+| `mcp` | `mcpauth`: `Verifier` (also a `tronc::mcp::Verifier`), `RequireLayer`, the metadata route (pulls in `oidc` and tronc's `mcp`) |
 
 The wiring every app writes, in its `auth` module, is in
 [docs/architecture.md](docs/architecture.md#wiring-an-app). The core of it:

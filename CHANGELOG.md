@@ -6,6 +6,28 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
+### Changed
+
+- **tronc v0.3.0.** porte-rs now depends on the tronc tag the apps use for MCP, so an app has
+  one `tronc::Error` type and needs no `[patch]`. The `mcp` feature turns on tronc's `mcp`.
+
+### Added
+
+- **`mcpauth::Verifier` implements `tronc::mcp::Verifier`.** An app passes it to
+  `tronc::mcp::Options` as is. `From<TokenInfo> for tronc::mcp::TokenInfo` puts `client_id` and
+  `actor` in `extra` under `EXTRA_CLIENT_ID` and `EXTRA_ACTOR` and `exp` in `expires_at`;
+  `InvalidToken` maps to `Invalid` (401) and `Unavailable` to `Unavailable` (500).
+- **`pg::Store::find_by_user(provider, user_id)`** returns the `(provider, subject)` an account
+  signs in with at one provider, or `StoreError::NotFound`. `Identity::subject` stays empty on
+  a cookie session, as in Go porte v0.16.1; this is how an app reads the Registre subject.
+
+### Documentation
+
+- The `directory` docs warn that a snapshot is authoritative: an `Apply` moves the data of a
+  space that disappeared to the trash and never hard-deletes it.
+
 ## [0.4.0] - 2026-11-10
 
 ### Added

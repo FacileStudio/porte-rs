@@ -136,10 +136,15 @@ impl Kits {
 
 Then the router: `sessions.routes()` and `oidc.routes()` under `/api`, the app's routes behind
 `sessions.require_auth()`, `syncer.nudge_route()` at `/api/registre/sync`, `deletions.route()`
-at `/api/registre/deletions`, `/mcp` behind `RequireLayer::new(mcp, …)` with
-`metadata_route` at `metadata_url(resource)`'s path. Spawn `syncer.run(token)` and
+at `/api/registre/deletions`, and `/mcp` either through `tronc::mcp::mount` (hand it
+`mcp` as the `Arc<dyn tronc::mcp::Verifier>`: porte's `Verifier` implements it, no adapter) or
+behind `RequireLayer::new(mcp, …)` with `metadata_route` at `metadata_url(resource)`'s path. Spawn `syncer.run(token)` and
 `deletions.run(token)` in exactly one replica. `SpacesApply`, `AppData` and `DeletionState`
-are the app's: its spaces tables, its own erase, and its one-row state table. Every
+are the app's: its spaces tables, its own erase, and its one-row state table. `SpacesApply`
+moves the content of a space the snapshot dropped to the trash, never deletes it: a snapshot
+is authoritative, and a space that vanished once can come back in the next one. A handler that
+needs the caller's Registre subject on a cookie session calls `store.find_by_user(&cfg.issuer,
+identity.user_id)`, because `Identity::subject` is empty there, as in Go. Every
 WebSocket route calls `sessions.check_origin(&parts)` before upgrading.
 
 ## Where Rust differs from Go
