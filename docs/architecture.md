@@ -28,6 +28,9 @@ Browser / CLI ──▶ app router (axum) ──▶ Manager::require_auth layer 
 | `session` | `Manager`: issue, cookies, the middleware, logout, `check_origin` |
 | `wire` | The JSON bodies of the routes |
 | `pg` | The tables and the stores over them, the token sealer |
+| `oidc` | The Registre kit: discovery, the routes, roles, bearer provisioning |
+| `jwt` | Offline RS256 verification against the issuer's JWKS |
+| `http_client` | The outbound HTTP, behind a `Transport` a test can replace |
 
 The root depends on no database driver: an app's own stores compile against plain types.
 
@@ -43,6 +46,28 @@ The root depends on no database driver: an app's own stores compile against plai
    credential gets its cookie cleared on the response.
 5. `last_used_at` is written at most once a minute.
 6. The `Identity` lands in the request extensions, where the `Identity` extractor reads it.
+
+## Sign-in flow
+
+```
+browser ── GET /api/auth/oidc ──▶ kit: state, nonce, PKCE verifier into __Host-oidc_state (10 min)
+        ◀── 302 sso.facile.studio/authorize?code_challenge=S256(verifier)&nonce=…&state=…
+        ── GET /api/auth/oidc/callback?code&state ──▶ kit: state == cookie (constant time)
+                                                      POST /oauth/token (Basic auth, code_verifier)
+                                                      verify id_token: RS256, iss, aud, exp, nonce
+                                                      UserStore::upsert_from_oidc, IdentityStore::save
+        ◀── 302 success URL, Set-Cookie: __Host-session
+```
+
+A CLI passes `?flow=cli&port=N&cli_state=S`: the callback stores a one-time login code and
+redirects to `http://127.0.0.1:N/?code=…&state=S`, or renders the code page without a port.
+`POST /auth/oidc/exchange` trades the code for a session token once. With `OIDC_CLI_AUDIENCE`,
+`POST /auth/oidc/device/exchange` trades a `facile-cli` device-grant access token for a session
+instead, and that token never opens a `require_auth` route directly.
+
+With `OIDC_MACHINE_AUDIENCE`, a bearer shaped as a JWT is verified offline and mapped to an
+account by `(issuer, sub)` through `resolve_bearer`, and `OIDC_SCOPE_PREFIX` gates it on
+`<prefix>.read` for GET, HEAD, OPTIONS and `<prefix>.write` for the rest.
 
 ## Data model
 
@@ -71,5 +96,13 @@ unverified account purges that account's identities and sessions first.
   is Go's; only the grouping differs.
 - **Cookies are returned, not written.** `set_cookie`, `clear_cookie` and `session_cookie`
   return `HeaderValue`s, and `Manager::authenticate` returns the ones the response must carry.
+- **ID tokens are verified by porte, not by `openidconnect`.** The crate runs discovery (and
+  accepts the live `https://sso.facile.studio` document), but the code exchange, the refresh
+  and the ID token checks are hand-written to go-oidc's rules: a logout token with no `sub` or
+  a non-object `events` must reach porte's own checks and messages, which `openidconnect`'s
+  typed claims refuse earlier. Only RS256 is accepted, as Registre advertises.
+- **The token endpoint is called with HTTP Basic only.** Go's `oauth2` auto-detects and falls
+  back to credentials in the form; Registre accepts Basic.
+- **The CLI code page draws no borders**, per the suite UI rule.
 - **No local passwords, magic links, avatars, API keys, forfait or mobile login.** The
   columns stay in `SCHEMA` so the tables match Go's.

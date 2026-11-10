@@ -14,6 +14,9 @@ test vectors generated from Go `porte` v0.16.1.
   (`__Host-session` over https) or `Authorization: Bearer`
 - Enforces the `X-Facile-CSRF` header on cookie-authenticated writes, an idle window, and an
   Origin check for WebSocket upgrades
+- Signs users in through Registre: discovery, the authorization code flow with PKCE (S256) and
+  a nonce, the CLI code and device exchanges, back-channel logout, profile sync and the roles claim
+- Verifies RS256 bearer JWTs offline against the issuer's JWKS, with an optional scope gate
 - Ships the identity tables (`porte_users`, `porte_identities`, `porte_sessions`, ...) byte for
   byte as Go writes them, with stores on `sqlx` and AES-256-GCM sealing of stored OIDC tokens
 
@@ -23,6 +26,7 @@ test vectors generated from Go `porte` v0.16.1.
 |---|---|
 | Runtime | Rust 1.98, edition 2024, axum 0.8, tower 0.5, [tronc-rs](https://github.com/FacileStudio/tronc-rs) 0.2 |
 | Storage | PostgreSQL 16 through sqlx 0.9 (feature `pg`) |
+| OIDC | openidconnect 4 for discovery, reqwest 0.13 with rustls, RSA 0.10 (feature `oidc`) |
 
 ## Install
 
@@ -30,25 +34,29 @@ Pin a tag and pick features. Nothing is on by default.
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.1.0", features = ["pg"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.2.0", features = ["pg", "oidc"] }
 ```
 
 | Feature | Modules |
 |---|---|
 | always | root types, `token`, `store`, `session`, `wire` |
 | `pg` | `pg`, the identity tables and their stores |
+| `oidc` | `oidc` (the Registre kit), `jwt`, `http_client` |
 
-A session-only app, the shape every app starts from:
+The wiring every app writes, in its `auth` module:
 
 ```rust
-use porte::session::{Deps, Manager};
-
-let store = porte::pg::Store::new(pool.clone());
-let sessions = Manager::new(&config, Deps { sessions: store.sessions(), now: None });
+let store = porte::pg::Store::new(pool.clone()).with_token_sealer(porte::pg::TokenSealer::parse(&token_key)?);
+let sessions = porte::session::Manager::new(&config, porte::session::Deps { sessions: store.sessions(), now: None });
+let kit = porte::oidc::Kit::new(&config, porte::oidc::Deps {
+    users: store.users(), identities: store.identities(), codes: store.login_codes(),
+    sessions: sessions.clone(), config_extra: None, http: None, now: None,
+}).await?;
 let api = Router::new()
     .route("/me", get(|me: porte::Identity| async move { me.user_id.to_string() }))
     .route_layer(sessions.require_auth())
-    .merge(sessions.routes());
+    .merge(sessions.routes())
+    .merge(kit.routes());
 ```
 
 The app's first migration carries `porte::pg::SCHEMA` verbatim.

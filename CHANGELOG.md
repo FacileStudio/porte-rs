@@ -6,6 +6,28 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-10
+
+### Added
+
+- **`oidc`, the Registre kit, ported from Go `porte/oidc` v0.16.1.** `Kit::new` runs discovery
+  through `openidconnect` and fails at boot on a bad config, a manager built from another
+  config, or a roles scope the provider does not offer. `Kit::routes` serves `/auth/config`,
+  `/auth/oidc` (browser and `?flow=cli`), the callback, `/auth/oidc/exchange`,
+  `/auth/oidc/device/exchange` (with `OIDC_CLI_AUDIENCE`), `/auth/sync-profile` and
+  `/auth/backchannel-logout` with Go's answers. `Kit::provision_bearer` and
+  `oidc::resolve_bearer` serve the bearer path.
+- **`jwt`**, offline RS256 verification with a cached JWKS, as Go `porte/oidc/jwt`.
+- **`http_client`**, the outbound HTTP behind a `Transport` trait so tests answer for a fake
+  issuer.
+- **Conformance.** Go's `routes`, `config_answer`, `pkce`, `scope_gate`, `jwt` and
+  `backchannel_logout` vectors pass; the flow is walked end to end against an in-process fake
+  provider that enforces PKCE, the redirect URI and client authentication.
+
+### Changed
+
+- The CLI code page draws no borders, per the suite UI rule; Go's page has them.
+
 ## [0.1.0] - 2026-11-10
 
 ### Added

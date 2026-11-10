@@ -137,3 +137,62 @@ pub struct TokenSealer;
 impl TokenSealer { new(&[[u8; 32]]), parse(spec) -> Result<Option<Self>, ConfigError>, seal(plain), open(stored) }
 pub struct TokenUnreadable;
 ```
+
+## `oidc` (`oidc`)
+
+```rust
+pub type ConfigExtra = Arc<dyn Fn() -> serde_json::Map<String, Value> + Send + Sync>;
+pub struct Deps { users: Arc<dyn UserStore>, identities: Arc<dyn IdentityStore>,
+    codes: Arc<dyn LoginCodeStore>, sessions: Manager, config_extra: Option<ConfigExtra>,
+    http: Option<HttpClient>, now: Option<Clock> }
+pub struct Kit;  // Clone; implements session::ClaimsSource
+impl Kit {
+    pub async fn new(cfg: &Config, deps: Deps) -> Result<Kit, ConfigError>;
+    pub fn routes<S>(&self) -> axum::Router<S>;
+    pub fn config(&self) -> &Config; pub fn enabled(&self) -> bool; pub fn sessions(&self) -> &Manager;
+    pub async fn provision_bearer(&self, token: &jwt::Claims) -> Result<Identity, ProvisionError>;
+}
+pub async fn resolve_bearer(identities: &dyn IdentityStore, issuer: &str, claims: &jwt::Claims) -> Result<Identity, StoreError>;
+pub fn pkce_challenge(verifier: &str) -> String;
+pub enum ProvisionError { Refused(String), Store(String) }
+pub struct IdToken { subject, nonce, claims: Value }   pub struct IdTokenError(pub String);
+```
+
+`Kit::new` arms the bearer-JWT path of the session manager when `machine_audience` is set,
+and attaches itself as the claims source when `claims_scope` is set.
+
+| Route | Mounted | Answer |
+|---|---|---|
+| `GET /auth/config` | always | `200 {"sso_only","oidc_enabled"}`, plus the `ConfigExtra` keys sorted, porte's two written last |
+| `GET /auth/oidc` | OIDC on | `302` to the authorize endpoint with `__Host-oidc_state` (10 min); `?flow=cli&port=N&cli_state=S` for a CLI; `?flow=mobile` is a `302` to the failure URL; `?ui_locales=fr` is forwarded |
+| `GET /auth/oidc/callback` | OIDC on | `302` to the success URL with the session cookie, to `127.0.0.1:N/?code=&state=` for a CLI with a port, or the code page; failures are `302` to `<failure>?error=<reason>` |
+| `POST /auth/oidc/exchange` | OIDC on | `{"code"}` → `200 {"user_id","token"}`, `401 invalid or expired code`, `no-store` |
+| `POST /auth/oidc/device/exchange` | `cli_audience` set | `{"access_token"}` → `200 {"user_id","token"}`, `400` on an empty body, `401 invalid access token`, `no-store` |
+| `POST /auth/sync-profile` | OIDC on, behind `require_auth` | `200 {"synced"}`; `401` when UserInfo answers for another subject |
+| `POST /auth/backchannel-logout` | OIDC on | form `logout_token` → `200 {"logged_out":true}`, `400 missing logout_token`, `401` for any token it refuses, `no-store` |
+
+## `jwt` (`oidc`)
+
+```rust
+pub const DEFAULT_CACHE_TTL: Duration;  // 1 hour
+pub const LEEWAY: Duration;             // 30 s
+pub struct Config { issuer, audience, extra_audiences: Vec<String>, cache_ttl: Duration, http: HttpClient, now: Option<Clock> }
+pub struct Verifier;
+impl Verifier { pub async fn new(cfg: Config) -> Result<Verifier, JwtError>; pub async fn verify(&self, raw: &str) -> Result<Claims, JwtError>; pub fn config(&self) -> &Config }
+pub struct Claims { subject, email, name, roles: Option<Vec<String>>, scopes, actor, audience, client_id, id, expires_at, profile: Profile }
+pub struct Profile { email_verified: Option<bool>, preferred_username, picture, locale }
+pub enum JwtError { Malformed, Algorithm(String), UnknownKey(String), Signature, Issuer(String), Audience,
+    Expired, NotYetValid, IssuedInFuture, Fetch(String), Config(String) }
+impl JwtError { pub fn is_invalid(&self) -> bool }
+```
+
+## `http_client` (`oidc` or `directory`)
+
+```rust
+pub type HttpRequest = http::Request<Vec<u8>>; pub type HttpResponse = http::Response<Vec<u8>>;
+pub struct TransportError(pub String);
+#[async_trait] pub trait Transport { async fn send(&self, HttpRequest) -> Result<HttpResponse, TransportError> }
+pub struct HttpClient;  // Clone; reqwest + rustls, no redirects, 10 s timeout
+impl HttpClient { new(), from_transport(Arc<dyn Transport>), send(req), get(url) }
+impl openidconnect::AsyncHttpClient for HttpClient;
+```
