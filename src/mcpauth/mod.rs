@@ -3,7 +3,12 @@
 //! A token is an RS256 JWT from the issuer whose `aud` names the resource byte for byte (or the
 //! app's client id on a delegated token), mapped to the local account by `(iss, sub)`. Every
 //! refusal is the same `invalid token`. `/mcp` is never plan-gated.
+//!
+//! [`Verifier`] implements `tronc::mcp::Verifier`, so an app hands it to `tronc::mcp::Options`
+//! as is: `TokenInfo::client_id` and `actor` travel in `extra` under `EXTRA_CLIENT_ID` and
+//! `EXTRA_ACTOR`, `InvalidToken` becomes `Invalid` (401) and `Unavailable` stays a 500.
 
+mod bridge;
 mod config;
 mod info;
 mod metadata;

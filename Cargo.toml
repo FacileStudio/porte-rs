@@ -13,7 +13,7 @@ pg = ["dep:sqlx", "dep:aes-gcm", "dep:hkdf"]
 net = ["dep:reqwest", "dep:rsa", "dep:tokio"]
 oidc = ["net", "dep:openidconnect"]
 spaces = []
-mcp = ["oidc"]
+mcp = ["oidc", "tronc/mcp"]
 directory = ["net", "dep:tokio-util"]
 
 [dependencies]
