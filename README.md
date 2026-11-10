@@ -1,5 +1,7 @@
 # porte-rs
 
+[![ci](https://github.com/FacileStudio/porte-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/FacileStudio/porte-rs/actions/workflows/ci.yml)
+
 The Rust auth kit for the [Facile Studio](https://facile.studio) suite: Registre sign-in,
 sessions, spaces and MCP auth for the suite apps written in Rust, ported from Go
 [`porte`](https://github.com/FacileStudio/porte).
