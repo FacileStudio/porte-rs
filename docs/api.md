@@ -258,3 +258,37 @@ impl Guard { new(Arc<dyn Store>), with_ladder(Ladder), resolve(user, space), req
 pub mod conformance { pub async fn run(new_store) -> Result<(), Vec<String>>; pub async fn run_with_ladder(new_store, Ladder);
     SPACE_A, SPACE_B, USER_OWNER, USER_ADMIN, USER_MEMBER, USER_CO_OWNER, USER_OUTSIDER }
 ```
+
+## `mcpauth` (`mcp`)
+
+```rust
+pub struct Config { issuer, resource, scope_prefix, audience, identities: Arc<dyn IdentityStore>,
+    provision: bool, accounts: Option<oidc::Kit>, http: HttpClient }
+pub enum VerifyError { InvalidToken, Unavailable }
+pub struct Verifier;
+impl Verifier { pub async fn new(cfg: Config) -> Result<Verifier, ConfigError>;
+    pub async fn verify(&self, raw: &str) -> Result<TokenInfo, VerifyError> }
+pub struct TokenInfo { user_id: String, scopes, expiration: OffsetDateTime, client_id, actor, subject }  // extractor
+pub const BULLE_CLIENT_ID: &str = "bulle";
+pub fn third_party(info: Option<&TokenInfo>) -> bool;   // false only for act + client_id "bulle"
+pub fn identity(info: Option<&TokenInfo>) -> Option<Identity>;
+pub struct Scopes { read, write }  impl Scopes { list() }
+pub fn scopes_for(prefix: &str) -> Scopes; pub fn has_scope(info: Option<&TokenInfo>, scope: &str) -> bool;
+pub struct RequireOptions { resource_metadata_url, scopes: Vec<String>, allow_missing_expiration, clock_skew }
+pub struct RequireLayer;  impl RequireLayer { pub fn new(Arc<Verifier>, RequireOptions) -> Self }  // tower::Layer
+pub struct ProtectedResourceMetadata { resource, authorization_servers, scopes_supported,
+    bearer_methods_supported, resource_signing_alg_values_supported }
+pub fn protected_resource_metadata(resource, issuer, scopes) -> ProtectedResourceMetadata;
+pub fn metadata_url(resource: &str) -> Result<String, ConfigError>;
+pub fn metadata_route<S>(ProtectedResourceMetadata) -> MethodRouter<S>;
+```
+
+| Refusal by `RequireLayer` | Status | Body | `WWW-Authenticate` |
+|---|---|---|---|
+| no `Bearer` header | 401 | `no bearer token` | `Bearer resource_metadata="…", scope="…"` |
+| any token refusal | 401 | `invalid token` | `Bearer error="invalid_token", resource_metadata="…", scope="…"` |
+| a required scope missing | 403 | `insufficient scope` | `Bearer error="insufficient_scope", resource_metadata="…", scope="…"` |
+| JWKS or store unreachable | 500 | `token verification is unavailable` | none |
+
+`write` implies `read` in `TokenInfo::scopes`. The bodies are `text/plain`, as the Go SDK
+writes them, not the suite envelope.

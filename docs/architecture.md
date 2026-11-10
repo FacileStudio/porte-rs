@@ -33,6 +33,7 @@ Browser / CLI ──▶ app router (axum) ──▶ Manager::require_auth layer 
 | `http_client` | The outbound HTTP, behind a `Transport` a test can replace |
 | `directory` | The Registre snapshot, the sync loop, account deletions |
 | `spaces` | The membership guard and its conformance suite |
+| `mcpauth` | The resource server for an app's `/mcp` |
 
 The root depends on no database driver: an app's own stores compile against plain types.
 
@@ -102,6 +103,45 @@ ships it as its first migration and porte never applies it at boot.
 the email only when the provider verified it, and a verified login that lands on an
 unverified account purges that account's identities and sessions first.
 
+## Wiring an app
+
+One `auth::Kits::new` per app builds everything once, at boot, in this order:
+
+```rust
+pub struct Kits { pub sessions: Manager, pub oidc: Kit, pub syncer: Syncer, pub deletions: Deletions, pub mcp: Arc<Verifier> }
+
+impl Kits {
+    pub async fn new(cfg: &porte::Config, pool: &PgPool, env: &Env) -> Result<Kits, Box<dyn Error>> {
+        let store = pg::Store::new(pool.clone()).with_token_sealer(pg::TokenSealer::parse(&env.token_key)?);
+        let sessions = session::Manager::new(cfg, session::Deps { sessions: store.sessions(), now: None });
+        let oidc = oidc::Kit::new(cfg, oidc::Deps {
+            users: store.users(), identities: store.identities(), codes: store.login_codes(),
+            sessions: sessions.clone(), config_extra: None, http: None, now: None,
+        }).await?;
+        let http = HttpClient::new();
+        let client = directory::Client { issuer: cfg.issuer.clone(), client_id: cfg.client_id.clone(),
+            client_secret: cfg.client_secret.clone(), http: http.clone() };
+        let syncer = directory::Syncer::new(client.clone(), Arc::new(SpacesApply::new(pool)), Duration::ZERO);
+        let deletions = directory::Deletions::new(client, Arc::new(AppData::new(pool)),
+            Some(Arc::new(store.clone())), Some(Arc::new(DeletionState::new(pool))), Duration::ZERO);
+        let mcp = Arc::new(mcpauth::Verifier::new(mcpauth::Config {
+            issuer: cfg.issuer.clone(), resource: env.mcp_resource.clone(), scope_prefix: "feuilles".into(),
+            audience: cfg.client_id.clone(), identities: store.identities(), provision: true,
+            accounts: Some(oidc.clone()), http,
+        }).await?);
+        Ok(Kits { sessions, oidc, syncer, deletions, mcp })
+    }
+}
+```
+
+Then the router: `sessions.routes()` and `oidc.routes()` under `/api`, the app's routes behind
+`sessions.require_auth()`, `syncer.nudge_route()` at `/api/registre/sync`, `deletions.route()`
+at `/api/registre/deletions`, `/mcp` behind `RequireLayer::new(mcp, …)` with
+`metadata_route` at `metadata_url(resource)`'s path. Spawn `syncer.run(token)` and
+`deletions.run(token)` in exactly one replica. `SpacesApply`, `AppData` and `DeletionState`
+are the app's: its spaces tables, its own erase, and its one-row state table. Every
+WebSocket route calls `sessions.check_origin(&parts)` before upgrading.
+
 ## Where Rust differs from Go
 
 - **`Manager::check_origin` is new.** A WebSocket upgrade is a GET, so the CSRF header rule
@@ -121,6 +161,9 @@ unverified account purges that account's identities and sessions first.
 - **The token endpoint is called with HTTP Basic only.** Go's `oauth2` auto-detects and falls
   back to credentials in the form; Registre accepts Basic.
 - **The CLI code page draws no borders**, per the suite UI rule.
+- **`mcpauth` has no Go SDK under it.** `RequireLayer` reproduces `RequireBearerToken`'s
+  answers and porte's challenge codes itself. `CheckPlan` and `PlanGate` are not ported:
+  `/mcp` is never plan-gated and no Rust app reads `forfait`.
 - **No `pg` spaces store.** Go `porte/pg` owns no space tables: membership is app data. The
   conformance suite runs in this repo against `spaces::Memory` and an unscoped store; Feuilles
   and Docs run it against their own `Store` over their own tables.

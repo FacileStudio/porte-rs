@@ -38,7 +38,7 @@ Each feature must also build alone:
 
 ```sh
 cargo clippy --all-targets --no-default-features -- -D warnings
-for f in pg oidc directory spaces; do
+for f in pg oidc directory spaces mcp; do
   cargo clippy --all-targets --no-default-features --features "$f" -- -D warnings
 done
 ```
@@ -53,6 +53,7 @@ done
 | `tests/oidc_flow.rs`, `tests/oidc_cli.rs`, `tests/oidc_claims.rs`, `tests/oidc_profile.rs`, `tests/oidc_provision.rs` | The whole kit against an in-process fake provider (`tests/common/provider.rs`) that enforces PKCE, the redirect URI and client authentication |
 | `tests/directory_sync.rs`, `tests/directory_deletions.rs`, `tests/directory_push.rs` | The syncer (with paused time), the deletion poll and the signed push |
 | `tests/spaces.rs`, `tests/spaces_guard.rs` | The conformance suite against `Memory` and against an unscoped store that must fail it |
+| `tests/mcpauth.rs`, `tests/mcpauth_require.rs`, `tests/mcpauth_provision.rs` | The MCP verifier, the challenges, the metadata, provisioning |
 | `tests/registre.rs` | Boots a kit against a live Registre; skipped unless `REGISTRE_ISSUER_URL` is set |
 | `tests/pg_sessions.rs`, `tests/pg_identities.rs` | The `pg` stores against Postgres |
 
@@ -65,6 +66,28 @@ Discovery against the real issuer is a read-only GET:
 ```sh
 REGISTRE_ISSUER_URL=https://sso.facile.studio cargo test --all-features --test registre
 ```
+
+## Real sign-in check
+
+The fake provider proves the flow; one manual run proves Registre. It needs a client the
+owner registers at Registre with the redirect URI
+`http://localhost:18080/api/auth/oidc/callback` (and, for the CLI check, `OIDC_CLI_AUDIENCE`):
+
+```sh
+mise run db-up
+PORT=18080 DATABASE_URL='postgres://postgres:test@127.0.0.1:5652/postgres?sslmode=disable' \
+OIDC_ISSUER=https://sso.facile.studio OIDC_CLIENT_ID=<client> OIDC_CLIENT_SECRET=<secret> \
+OIDC_REDIRECT_URL=http://localhost:18080/api/auth/oidc/callback \
+OIDC_SUCCESS_URL=http://localhost:18080/api/me \
+cargo run --example signin --all-features
+```
+
+Open `http://localhost:18080/api/auth/oidc`, sign in, and expect `signed in as user N`. Then
+`psql … -c 'SELECT id, user_id, expires_at FROM porte_sessions'` shows the row, the browser's
+`session` cookie is `HttpOnly; SameSite=Lax` (and `__Host-session; Secure` behind https), and
+`curl -X POST -H 'X-Facile-CSRF: 1' -b 'session=<token>' localhost:18080/api/auth/logout`
+clears it. With `OIDC_CLI_AUDIENCE=facile-cli`, `facile login` against the example completes
+through `POST /api/auth/oidc/device/exchange`; without it that route answers 404.
 
 ## Vectors
 

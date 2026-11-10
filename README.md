@@ -20,6 +20,8 @@ test vectors generated from Go `porte` v0.16.1.
   deletions it polls and receives signed
 - Guards space membership with a rank ladder and a conformance suite for the app's store
 - Verifies RS256 bearer JWTs offline against the issuer's JWKS, with an optional scope gate
+- Guards an app's `/mcp` as an OAuth 2.1 resource server, with RFC 9728 metadata and
+  first-call account provisioning
 - Ships the identity tables (`porte_users`, `porte_identities`, `porte_sessions`, ...) byte for
   byte as Go writes them, with stores on `sqlx` and AES-256-GCM sealing of stored OIDC tokens
 
@@ -33,11 +35,12 @@ test vectors generated from Go `porte` v0.16.1.
 
 ## Install
 
-Pin a tag and pick features. Nothing is on by default.
+Pin a tag and pick features. Nothing is on by default. Until the repo is pushed, a sibling
+app points at the local checkout with `git = "file:///home/yann/Code/Facile/porte-rs"`.
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.3.0", features = ["pg", "oidc", "directory", "spaces"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.4.0", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
 ```
 
 | Feature | Modules |
@@ -47,8 +50,10 @@ porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.3.0", feat
 | `oidc` | `oidc` (the Registre kit), `jwt`, `http_client` |
 | `directory` | `directory`: the snapshot client, `Syncer`, `Deletions`, `http_client` |
 | `spaces` | `spaces`: `Guard`, `Ladder`, the `Store` trait and `spaces::conformance` |
+| `mcp` | `mcpauth`: `Verifier`, `RequireLayer`, the metadata route (pulls in `oidc`) |
 
-The wiring every app writes, in its `auth` module:
+The wiring every app writes, in its `auth` module, is in
+[docs/architecture.md](docs/architecture.md#wiring-an-app). The core of it:
 
 ```rust
 let store = porte::pg::Store::new(pool.clone()).with_token_sealer(porte::pg::TokenSealer::parse(&token_key)?);

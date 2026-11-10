@@ -6,6 +6,24 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-10
+
+### Added
+
+- **`mcpauth`, ported from Go `porte/mcpauth` v0.2.0.** `Verifier` checks RS256 tokens whose
+  `aud` names the resource byte for byte (the app's client id only on a delegated token),
+  resolves them by `(iss, sub)`, optionally provisions the account through the OIDC kit, and
+  answers every refusal as `invalid token` and a store or JWKS failure as unavailable.
+  `RequireLayer` answers as the MCP Go SDK's `RequireBearerToken` with `error="invalid_token"`
+  and `error="insufficient_scope"` challenges; `TokenInfo` is an extractor. Also
+  `scopes_for`, `has_scope`, `third_party`, `identity`, `metadata_url`,
+  `protected_resource_metadata` and `metadata_route`.
+
+### Not ported
+
+- `CheckPlan` and `PlanGate`: they need `forfait`, which no Rust app uses, and `/mcp` is never
+  plan-gated.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added
