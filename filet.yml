@@ -1,0 +1,11 @@
+# porte-rs: Registre sign-in, sessions, spaces and MCP auth for the Facile Suite, the sibling of Go porte.
+
+kind: lib
+
+ignore: [.git, target, dist, build, coverage, tests/vectors]
+extensions: [.rs, .sh]
+
+disabled:
+  - gen.line.long   # rustfmt owns line width (rustfmt.toml sets 120)
+
+failOn: error
