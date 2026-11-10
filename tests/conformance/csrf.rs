@@ -26,7 +26,7 @@ async fn csrf_vector() {
     }
 }
 
-async fn ok(_: Request<Body>) -> Result<axum::response::Response, std::convert::Infallible> {
+pub async fn ok(_: Request<Body>) -> Result<axum::response::Response, std::convert::Infallible> {
     Ok(axum::response::Response::new(Body::empty()))
 }
 
