@@ -6,6 +6,23 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
+### Added
+
+- **`directory`, ported from Go `porte/directory` v0.3.0.** `Client::snapshot` decodes as Go
+  does (case-insensitive names, every field optional, 8 MiB cap). `Syncer` pulls at boot, every
+  five minutes and two seconds after a nudge, applies a version once, and serves the nudge
+  route. `Deletions` polls `/api/directory/deletions` page by page, calls the app then porte
+  once per person, keeps the cursor before the earliest failure, and receives signed
+  `secevent+jwt` pushes (202, 400, 503 inside the key refetch gap). `pg::Store` implements
+  `IdentityEraser`.
+- **`spaces`, ported from Go `porte/spaces`.** `Role`, `Ladder`, `Membership`, `Scope`,
+  `Guard::{resolve, require, can_leave, spaces, assignable_by, assignable_over}`, the `Store`
+  trait, `Memory`, and `spaces::conformance::run`, which fails against a store whose lookup
+  ignores the space id.
+- **Conformance.** Go's `directory_snapshot` and `spaces_ladder` vectors pass.
+
 ## [0.2.0] - 2026-11-10
 
 ### Added

@@ -196,3 +196,65 @@ pub struct HttpClient;  // Clone; reqwest + rustls, no redirects, 10 s timeout
 impl HttpClient { new(), from_transport(Arc<dyn Transport>), send(req), get(url) }
 impl openidconnect::AsyncHttpClient for HttpClient;
 ```
+
+## `directory` (`directory`)
+
+```rust
+pub const ROLE_MEMBER, ROLE_ADMIN, ROLE_OWNER: &str;
+pub const MAX_SNAPSHOT_BYTES: usize = 8 << 20;
+pub const SYNC_PATH: &str = "/api/registre/sync";
+pub const DELETIONS_PATH: &str = "/api/registre/deletions";
+pub const DEFAULT_INTERVAL: Duration;    // 5 minutes
+pub const DELETION_RETENTION: Duration;  // 60 days
+pub const USER_DELETED_EVENT: &str = "https://schemas.facile.studio/event/user-deleted";
+pub enum DirectoryError { Unavailable(String), TooLarge, Failed(String) }
+
+pub struct Client { pub issuer, pub client_id, pub client_secret, pub http: HttpClient }
+impl Client { pub async fn snapshot(&self) -> Result<Snapshot, DirectoryError>;
+    pub async fn deletions(&self, since: OffsetDateTime) -> Result<Vec<Deleted>, DirectoryError> }
+pub struct Snapshot { version: i64, entitlements_revision: i64, spaces: Vec<Space>, people: Vec<Person> }
+pub struct Space { id, name, members: Vec<Member>, entitlements: HashMap<String, Value> }
+pub struct Member { subject /* "sub" */, email, name, picture, role }
+pub struct Person { subject /* "sub" */, entitlements: HashMap<String, Value> }
+pub struct Deleted { subject, deleted_at: OffsetDateTime }
+
+#[async_trait] pub trait Apply { async fn apply(&self, &Snapshot) -> Result<(), DirectoryError> }
+pub struct Syncer;  // Clone
+impl Syncer { pub fn new(client, apply: Arc<dyn Apply>, interval) -> Syncer;
+    pub fn nudge_route<S>(&self) -> MethodRouter<S>; pub fn nudge(&self);
+    pub async fn sync(&self) -> Result<(), DirectoryError>; pub async fn run(&self, shutdown: CancellationToken) }
+
+#[async_trait] pub trait PersonDeleted { async fn on_person_deleted(&self, provider, subject) -> Result<(), DirectoryError> }
+#[async_trait] pub trait IdentityEraser { async fn erase_identity(&self, provider, subject) -> Result<(), DirectoryError> }  // pg::Store
+#[async_trait] pub trait StateStore { async fn load(&self) -> Result<Vec<u8>, _>; async fn save(&self, &[u8]) -> Result<(), _> }
+pub struct Deletions;  // Clone
+impl Deletions { pub fn new(client, on_deleted, eraser: Option<_>, store: Option<_>, interval) -> Deletions;
+    pub async fn poll(&self) -> Result<(), DirectoryError>; pub async fn run(&self, shutdown: CancellationToken);
+    pub fn route<S>(&self) -> MethodRouter<S> }
+```
+
+| Route | Answer |
+|---|---|
+| `POST /api/registre/sync` (`Syncer::nudge_route`) | `202`, wakes the loop; other methods `405` |
+| `POST /api/registre/deletions` (`Deletions::route`) | `202` once erased; `400` for any notice it refuses; `503` when the keys cannot be fetched or an unknown `kid` arrives inside the one-minute refetch gap; `500` when an erase fails; other methods `405` with `Allow: POST` |
+
+## `spaces` (`spaces`)
+
+```rust
+pub struct Role(pub String);  // Role::owner(), Role::admin(), Role::member(), as_str(), From<&str>
+pub struct Membership { space_id, user_id, role: Role }
+pub struct Scope { pub user_id, pub space_id, pub role, /* resolved: private */ }
+impl Scope { resolved(), personal() }
+pub enum SpaceError { NotMember, Forbidden, SoleOwner, UnknownRole, Store(String) }
+pub struct Ladder;  // Default: member < admin < owner
+impl Ladder { new(&[Role]), valid, at_least(have, min), top, roles }
+#[async_trait] pub trait Store { membership(space, user), memberships(user), count_role(space, &Role) }
+#[async_trait] pub trait Seeder: Store { seed(&Membership) }
+pub struct Memory;  // Store + Seeder
+pub struct Guard;   // Clone
+impl Guard { new(Arc<dyn Store>), with_ladder(Ladder), resolve(user, space), require(user, space, &min),
+    can_leave(user, space), spaces(user), assignable_by(&Scope, &Role), assignable_over(&Scope, &current, &target),
+    ladder(), store() }
+pub mod conformance { pub async fn run(new_store) -> Result<(), Vec<String>>; pub async fn run_with_ladder(new_store, Ladder);
+    SPACE_A, SPACE_B, USER_OWNER, USER_ADMIN, USER_MEMBER, USER_CO_OWNER, USER_OUTSIDER }
+```

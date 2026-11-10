@@ -16,6 +16,9 @@ test vectors generated from Go `porte` v0.16.1.
   Origin check for WebSocket upgrades
 - Signs users in through Registre: discovery, the authorization code flow with PKCE (S256) and
   a nonce, the CLI code and device exchanges, back-channel logout, profile sync and the roles claim
+- Mirrors Registre's spaces through the directory snapshot, its nudge, and the account
+  deletions it polls and receives signed
+- Guards space membership with a rank ladder and a conformance suite for the app's store
 - Verifies RS256 bearer JWTs offline against the issuer's JWKS, with an optional scope gate
 - Ships the identity tables (`porte_users`, `porte_identities`, `porte_sessions`, ...) byte for
   byte as Go writes them, with stores on `sqlx` and AES-256-GCM sealing of stored OIDC tokens
@@ -34,7 +37,7 @@ Pin a tag and pick features. Nothing is on by default.
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.2.0", features = ["pg", "oidc"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.3.0", features = ["pg", "oidc", "directory", "spaces"] }
 ```
 
 | Feature | Modules |
@@ -42,6 +45,8 @@ porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.2.0", feat
 | always | root types, `token`, `store`, `session`, `wire` |
 | `pg` | `pg`, the identity tables and their stores |
 | `oidc` | `oidc` (the Registre kit), `jwt`, `http_client` |
+| `directory` | `directory`: the snapshot client, `Syncer`, `Deletions`, `http_client` |
+| `spaces` | `spaces`: `Guard`, `Ladder`, the `Store` trait and `spaces::conformance` |
 
 The wiring every app writes, in its `auth` module:
 

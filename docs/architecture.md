@@ -31,6 +31,8 @@ Browser / CLI ──▶ app router (axum) ──▶ Manager::require_auth layer 
 | `oidc` | The Registre kit: discovery, the routes, roles, bearer provisioning |
 | `jwt` | Offline RS256 verification against the issuer's JWKS |
 | `http_client` | The outbound HTTP, behind a `Transport` a test can replace |
+| `directory` | The Registre snapshot, the sync loop, account deletions |
+| `spaces` | The membership guard and its conformance suite |
 
 The root depends on no database driver: an app's own stores compile against plain types.
 
@@ -69,6 +71,21 @@ With `OIDC_MACHINE_AUDIENCE`, a bearer shaped as a JWT is verified offline and m
 account by `(issuer, sub)` through `resolve_bearer`, and `OIDC_SCOPE_PREFIX` gates it on
 `<prefix>.read` for GET, HEAD, OPTIONS and `<prefix>.write` for the rest.
 
+## Directory and deletions
+
+```
+Registre ── POST /api/registre/sync (empty) ──▶ Syncer::nudge ─┐ 2 s debounce
+         ◀── GET /api/directory/snapshot (Basic client creds) ──┤ also at boot and every 5 min
+                                                                 └▶ Apply::apply (app tables), once per version
+Registre ── POST /api/registre/deletions (secevent+jwt) ──▶ Deletions: verify RS256, iss, aud, window
+         ◀── GET /api/directory/deletions?since=cursor-1min ── Deletions::poll, page by page
+                                                   each person: PersonDeleted (app) → IdentityEraser (porte)
+```
+
+The nudge carries nothing and is trusted for nothing. The cursor only moves past people
+handled before the earliest failure, and handled subjects are remembered for the retention
+window, so a retried page never erases twice.
+
 ## Data model
 
 `porte::pg::SCHEMA` is Go `pg.Schema` byte for byte, pinned by `vectors/schema.json`. An app
@@ -104,5 +121,10 @@ unverified account purges that account's identities and sessions first.
 - **The token endpoint is called with HTTP Basic only.** Go's `oauth2` auto-detects and falls
   back to credentials in the form; Registre accepts Basic.
 - **The CLI code page draws no borders**, per the suite UI rule.
+- **No `pg` spaces store.** Go `porte/pg` owns no space tables: membership is app data. The
+  conformance suite runs in this repo against `spaces::Memory` and an unscoped store; Feuilles
+  and Docs run it against their own `Store` over their own tables.
+- **The deletion state blob is not Go's.** It is JSON with a unix-seconds cursor; the blob is
+  opaque to the app and never shared with a Go app.
 - **No local passwords, magic links, avatars, API keys, forfait or mobile login.** The
   columns stay in `SCHEMA` so the tables match Go's.

@@ -38,7 +38,7 @@ Each feature must also build alone:
 
 ```sh
 cargo clippy --all-targets --no-default-features -- -D warnings
-for f in pg oidc; do
+for f in pg oidc directory spaces; do
   cargo clippy --all-targets --no-default-features --features "$f" -- -D warnings
 done
 ```
@@ -51,6 +51,8 @@ done
 | `tests/session.rs`, `tests/session_issue.rs` | Issue, expiry, the idle window, touch coalescing, binding, logout |
 | `tests/origin.rs` | `Manager::check_origin` |
 | `tests/oidc_flow.rs`, `tests/oidc_cli.rs`, `tests/oidc_claims.rs`, `tests/oidc_profile.rs`, `tests/oidc_provision.rs` | The whole kit against an in-process fake provider (`tests/common/provider.rs`) that enforces PKCE, the redirect URI and client authentication |
+| `tests/directory_sync.rs`, `tests/directory_deletions.rs`, `tests/directory_push.rs` | The syncer (with paused time), the deletion poll and the signed push |
+| `tests/spaces.rs`, `tests/spaces_guard.rs` | The conformance suite against `Memory` and against an unscoped store that must fail it |
 | `tests/registre.rs` | Boots a kit against a live Registre; skipped unless `REGISTRE_ISSUER_URL` is set |
 | `tests/pg_sessions.rs`, `tests/pg_identities.rs` | The `pg` stores against Postgres |
 
