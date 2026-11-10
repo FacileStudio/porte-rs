@@ -29,6 +29,8 @@ mod jose;
 pub mod jwt;
 #[cfg(feature = "oidc")]
 mod jwt_error;
+#[cfg(feature = "mcp")]
+pub mod mcpauth;
 #[cfg(feature = "oidc")]
 pub mod oidc;
 #[cfg(feature = "pg")]
