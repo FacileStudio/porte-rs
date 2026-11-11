@@ -6,6 +6,8 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-11
+
 ### Fixed
 
 - **ID and logout tokens follow go-oidc's key set.** They no longer share the bearer cache,
