@@ -1,7 +1,8 @@
 //! The outbound HTTP porte uses for discovery, keys, the token endpoint and the directory.
 //!
-//! [`HttpClient::new`] is `reqwest` with redirects off and a 10 s timeout. A test hands in its
-//! own [`Transport`] to answer for a fake issuer such as `https://sso.test`.
+//! [`HttpClient::new`] is `reqwest` with redirects off, a 10 s timeout and a 1 MiB cap on what it
+//! reads of a response body. A test hands in its own [`Transport`] to answer for a fake issuer
+//! such as `https://sso.test`.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -10,6 +11,13 @@ use std::time::Duration;
 pub type HttpRequest = http::Request<Vec<u8>>;
 /// An inbound response.
 pub type HttpResponse = http::Response<Vec<u8>>;
+
+const DEFAULT_BODY_LIMIT: usize = 1 << 20;
+
+/// How much of a response body the default transport reads, as a request extension. It stops one
+/// byte past the limit, so the caller can still tell an oversized body from one that fits.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BodyLimit(pub(crate) usize);
 
 /// A network failure: nothing answered, or the answer could not be read.
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +38,7 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    /// `reqwest` with rustls, no redirects and a 10 s timeout.
+    /// `reqwest` with rustls, no redirects, a 10 s timeout and response bodies read up to 1 MiB.
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -69,13 +77,19 @@ struct Reqwest(reqwest::Client);
 impl Transport for Reqwest {
     async fn send(&self, request: HttpRequest) -> Result<HttpResponse, TransportError> {
         let fail = |error: reqwest::Error| TransportError(error.to_string());
+        let limit = request.extensions().get::<BodyLimit>().map_or(DEFAULT_BODY_LIMIT, |limit| limit.0);
         let request = reqwest::Request::try_from(request).map_err(fail)?;
-        let response = self.0.execute(request).await.map_err(fail)?;
+        let mut response = self.0.execute(request).await.map_err(fail)?;
         let mut builder = http::Response::builder().status(response.status());
         if let Some(headers) = builder.headers_mut() {
             headers.extend(response.headers().clone());
         }
-        let body = response.bytes().await.map_err(fail)?.to_vec();
+        let mut body = Vec::new();
+        while body.len() <= limit
+            && let Some(chunk) = response.chunk().await.map_err(fail)?
+        {
+            body.extend_from_slice(&chunk[..chunk.len().min(limit + 1 - body.len())]);
+        }
         builder.body(body).map_err(|error| TransportError(error.to_string()))
     }
 }
