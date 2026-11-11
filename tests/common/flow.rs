@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Body;
@@ -8,6 +8,7 @@ use http::Request;
 use porte::oidc::{Deps, Kit};
 use porte::session::{self, Manager};
 use porte::{Config, ConfigError, Identity};
+use time::OffsetDateTime;
 
 use super::http::{Answer, send};
 use super::memory::Sessions;
@@ -21,6 +22,7 @@ pub struct Flow {
     pub sessions: Arc<Sessions>,
     pub identities: Arc<Identities>,
     pub users: Arc<Users>,
+    pub clock: Arc<Mutex<Option<OffsetDateTime>>>,
 }
 
 pub fn base_config() -> Config {
@@ -41,6 +43,8 @@ pub async fn harness(configure: impl FnOnce(&mut Config, &Provider)) -> Result<F
     let sessions = Arc::new(Sessions::default());
     let manager = Manager::new(&cfg, session::Deps { sessions: sessions.clone(), now: None });
     let (identities, users) = (Arc::new(Identities::default()), Arc::new(Users::default()));
+    let clock: Arc<Mutex<Option<OffsetDateTime>>> = Arc::default();
+    let frozen = clock.clone();
     let deps = Deps {
         users: users.clone(),
         identities: identities.clone(),
@@ -48,13 +52,18 @@ pub async fn harness(configure: impl FnOnce(&mut Config, &Provider)) -> Result<F
         sessions: manager.clone(),
         config_extra: None,
         http: Some(provider.client()),
-        now: None,
+        now: Some(Arc::new(move || frozen.lock().unwrap().unwrap_or_else(OffsetDateTime::now_utc))),
     };
     let kit = Kit::new(&cfg, deps).await?;
-    Ok(Flow { provider, kit, manager, sessions, identities, users })
+    Ok(Flow { provider, kit, manager, sessions, identities, users, clock })
 }
 
 impl Flow {
+    pub fn advance(&self, by: std::time::Duration) {
+        let mut clock = self.clock.lock().unwrap();
+        *clock = Some(clock.unwrap_or_else(OffsetDateTime::now_utc) + by);
+    }
+
     pub fn router(&self) -> Router {
         let whoami = get(|me: Identity| async move { format!("{} {}", me.user_id, me.roles.join(",")) });
         let protected = Router::new().route("/whoami", whoami).route_layer(self.manager.require_auth());

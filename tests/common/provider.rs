@@ -30,6 +30,10 @@ pub struct State {
     pub userinfo_subject: Option<String>,
     pub nonce_override: Option<String>,
     pub token_requests: usize,
+    pub jwks: Value,
+    pub keys_down: bool,
+    pub key_fetches: usize,
+    pub published_issuer: String,
 }
 
 #[derive(Clone)]
@@ -51,6 +55,10 @@ impl Provider {
             userinfo_subject: None,
             nonce_override: None,
             token_requests: 0,
+            jwks: jwks(),
+            keys_down: false,
+            key_fetches: 0,
+            published_issuer: ISSUER.into(),
         };
         Provider { state: Arc::new(Mutex::new(state)) }
     }
@@ -82,22 +90,27 @@ impl Provider {
     }
 
     pub fn logout_token(&self, extra: Value) -> String {
+        sign(&self.logout_claims(extra))
+    }
+
+    pub fn logout_claims(&self, extra: Value) -> Value {
         let subject = self.state.lock().unwrap().subject.clone();
         let mut claims = json!({
             "iss": ISSUER, "sub": subject, "aud": CLIENT_ID, "iat": now(), "exp": now() + 120, "jti": "logout-1",
             "events": { "http://schemas.openid.net/event/backchannel-logout": {} },
         });
         merge(&mut claims, extra);
-        sign(&claims)
+        claims
     }
 
     fn discovery(&self) -> Value {
+        let state = self.state.lock().unwrap();
         json!({
-            "issuer": ISSUER, "authorization_endpoint": format!("{ISSUER}/authorize"),
+            "issuer": state.published_issuer, "authorization_endpoint": format!("{ISSUER}/authorize"),
             "token_endpoint": format!("{ISSUER}/token"), "userinfo_endpoint": format!("{ISSUER}/userinfo"),
             "jwks_uri": format!("{ISSUER}/keys"), "response_types_supported": ["code"],
             "subject_types_supported": ["public"], "id_token_signing_alg_values_supported": ["RS256"],
-            "scopes_supported": self.state.lock().unwrap().scopes_supported,
+            "scopes_supported": state.scopes_supported,
         })
     }
 }
@@ -108,7 +121,7 @@ impl Transport for Provider {
         let url = request.uri().to_string();
         match url.strip_prefix(ISSUER) {
             Some("/.well-known/openid-configuration") => Ok(answer(200, self.discovery())),
-            Some("/keys") => Ok(answer(200, jwks())),
+            Some("/keys") => self.keys(),
             Some("/token") => Ok(self.token(&request)),
             Some("/userinfo") => Ok(self.userinfo(&request)),
             _ => Err(TransportError(format!("no route to {url}"))),

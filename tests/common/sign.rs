@@ -4,6 +4,7 @@ use rsa::PrivateKey;
 use rsa::pkcs1v15::SigningKey;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::signature::{SignatureEncoding, Signer};
+use rsa::traits::PublicKeyParts;
 use serde_json::{Value, json};
 use sha2::Sha256;
 
@@ -27,6 +28,11 @@ pub fn sign(claims: &Value) -> String {
 
 pub fn jwks() -> Value {
     super::vectors::load("jwt")["fixtures"]["jwks"].clone()
+}
+
+pub fn jwk(key: &PrivateKey, kid: &str) -> Value {
+    let encode = |value: &rsa::BoxedUint| URL_SAFE_NO_PAD.encode(value.to_be_bytes_trimmed_vartime());
+    json!({ "kty": "RSA", "alg": "RS256", "use": "sig", "kid": kid, "n": encode(key.n().as_ref()), "e": encode(key.e()) })
 }
 
 pub fn now() -> i64 {

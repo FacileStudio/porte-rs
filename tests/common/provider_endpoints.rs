@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
-use porte::http_client::{HttpRequest, HttpResponse};
+use porte::http_client::{HttpRequest, HttpResponse, TransportError};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -53,6 +53,15 @@ impl Provider {
         let access = sign(&json!({ "iss": ISSUER, "sub": state.subject, "aud": CLIENT_ID, "exp": now() + 600 }));
         json!({ "access_token": access, "token_type": "Bearer", "refresh_token": "refresh-token",
                 "expires_in": 600, "id_token": sign(&claims) })
+    }
+
+    pub fn keys(&self) -> Result<HttpResponse, TransportError> {
+        let mut state = self.state.lock().unwrap();
+        state.key_fetches += 1;
+        match state.keys_down {
+            true => Err(TransportError("the JWKS endpoint is down".into())),
+            false => Ok(answer(200, state.jwks.clone())),
+        }
     }
 
     pub fn userinfo(&self, request: &HttpRequest) -> HttpResponse {

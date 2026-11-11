@@ -66,17 +66,6 @@ impl KeyCache {
         Err(JwtError::UnknownKey(kid.to_owned()))
     }
 
-    pub(crate) async fn candidates(&self, kid: &str) -> Result<Vec<PublicKey>, JwtError> {
-        if !kid.is_empty() {
-            return self.key(kid).await.map(|key| vec![key]);
-        }
-        let mut state = self.state.lock().await;
-        if state.keys.is_none() {
-            self.fetch(&mut state).await?;
-        }
-        Ok(state.keys.iter().flat_map(|keys| keys.values().cloned()).collect())
-    }
-
     async fn fetch(&self, state: &mut State) -> Result<(), JwtError> {
         let set: KeySet = get_json(&self.http, &self.jwks_uri)
             .await

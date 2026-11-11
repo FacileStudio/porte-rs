@@ -4,7 +4,7 @@
 //! an unknown `kid` and at most every 30 s for that reason, so forged kids cost one fetch.
 
 pub(crate) mod claims;
-mod discover;
+pub(crate) mod discover;
 pub(crate) mod keys;
 
 use std::time::Duration;

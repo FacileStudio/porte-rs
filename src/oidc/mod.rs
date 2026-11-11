@@ -18,6 +18,7 @@ mod flow;
 mod form;
 mod handoff;
 mod id_token;
+mod key_set;
 mod login;
 mod provision;
 mod routes;
@@ -29,7 +30,6 @@ use std::sync::Arc;
 
 pub use bearer::resolve_bearer;
 pub use flow::pkce_challenge;
-pub use id_token::{IdToken, IdTokenError};
 pub use provision::ProvisionError;
 
 use crate::http_client::HttpClient;
