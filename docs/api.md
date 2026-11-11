@@ -156,7 +156,6 @@ impl Kit {
 pub async fn resolve_bearer(identities: &dyn IdentityStore, issuer: &str, claims: &jwt::Claims) -> Result<Identity, StoreError>;
 pub fn pkce_challenge(verifier: &str) -> String;
 pub enum ProvisionError { Refused(String), Store(String) }
-pub struct IdToken { subject, nonce, claims: Value }   pub struct IdTokenError(pub String);
 ```
 
 `Kit::new` arms the bearer-JWT path of the session manager when `machine_audience` is set,
@@ -170,7 +169,7 @@ and attaches itself as the claims source when `claims_scope` is set.
 | `POST /auth/oidc/exchange` | OIDC on | `{"code"}` → `200 {"user_id","token"}`, `401 invalid or expired code`, `no-store` |
 | `POST /auth/oidc/device/exchange` | `cli_audience` set | `{"access_token"}` → `200 {"user_id","token"}`, `400` on an empty body, `401 invalid access token`, `no-store` |
 | `POST /auth/sync-profile` | OIDC on, behind `require_auth` | `200 {"synced"}`; `401` when UserInfo answers for another subject |
-| `POST /auth/backchannel-logout` | OIDC on | form `logout_token` → `200 {"logged_out":true}`, `400 missing logout_token`, `401` for any token it refuses, `no-store` |
+| `POST /auth/backchannel-logout` | OIDC on | form `logout_token` → `200 {"logged_out":true}`, `400 missing logout_token`, `401` for any token it refuses, `503 could not fetch the provider keys` when the token may be signed by a key porte cannot fetch (retryable), `no-store` |
 
 ## `jwt` (`oidc`)
 
@@ -193,9 +192,8 @@ impl JwtError { pub fn is_invalid(&self) -> bool }
 pub type HttpRequest = http::Request<Vec<u8>>; pub type HttpResponse = http::Response<Vec<u8>>;
 pub struct TransportError(pub String);
 #[async_trait] pub trait Transport { async fn send(&self, HttpRequest) -> Result<HttpResponse, TransportError> }
-pub struct HttpClient;  // Clone; reqwest + rustls, no redirects, 10 s timeout
+pub struct HttpClient;  // Clone; reqwest + rustls, no redirects, 10 s timeout, bodies read to 1 MiB (8 MiB for the directory)
 impl HttpClient { new(), from_transport(Arc<dyn Transport>), send(req), get(url) }
-impl openidconnect::AsyncHttpClient for HttpClient;
 ```
 
 ## `directory` (`directory`)

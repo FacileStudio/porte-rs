@@ -33,7 +33,7 @@ test vectors generated from Go `porte` v0.16.1.
 |---|---|
 | Runtime | Rust 1.98, edition 2024, axum 0.8, tower 0.5, [tronc-rs](https://github.com/FacileStudio/tronc-rs) 0.3 |
 | Storage | PostgreSQL 16 through sqlx 0.9 (feature `pg`) |
-| OIDC | openidconnect 4 for discovery, reqwest 0.13 with rustls, RSA 0.10 (feature `oidc`) |
+| OIDC | hand-written to go-oidc's rules, reqwest 0.13 with rustls, RSA 0.10 (feature `oidc`) |
 
 ## Install
 

@@ -158,11 +158,17 @@ WebSocket route calls `sessions.check_origin(&parts)` before upgrading.
   is Go's; only the grouping differs.
 - **Cookies are returned, not written.** `set_cookie`, `clear_cookie` and `session_cookie`
   return `HeaderValue`s, and `Manager::authenticate` returns the ones the response must carry.
-- **ID tokens are verified by porte, not by `openidconnect`.** The crate runs discovery (and
-  accepts the live `https://sso.facile.studio` document), but the code exchange, the refresh
-  and the ID token checks are hand-written to go-oidc's rules: a logout token with no `sub` or
-  a non-object `events` must reach porte's own checks and messages, which `openidconnect`'s
-  typed claims refuse earlier. Only RS256 is accepted, as Registre advertises.
+- **No OIDC client crate.** Discovery, the code exchange, the refresh and the ID token checks
+  are hand-written to go-oidc's rules: a logout token with no `sub` or a non-object `events`
+  must reach porte's own checks and messages, which a typed client refuses earlier. Discovery
+  shares the `jwt` fetch (1 MiB cap) and requires the issuer byte for byte, an
+  `authorization_endpoint` and a `jwks_uri`, as go-oidc's `NewProvider` does. Only RS256 is
+  accepted, as Registre advertises.
+- **ID and logout tokens use go-oidc's key set, not the bearer cache.** Cached keys never
+  expire. A signature no cached key verifies (an unknown kid, no kid, a key replaced under its
+  kid) refetches the JWKS, at most every 30 s where go-oidc does not throttle. A failed fetch
+  keeps the old keys. A back-channel logout that cannot be checked because the fetch failed
+  answers `503`, so Registre retries it instead of dropping the revocation.
 - **The token endpoint is called with HTTP Basic only.** Go's `oauth2` auto-detects and falls
   back to credentials in the form; Registre accepts Basic.
 - **The CLI code page draws no borders**, per the suite UI rule.
@@ -174,5 +180,7 @@ WebSocket route calls `sessions.check_origin(&parts)` before upgrading.
   and Docs run it against their own `Store` over their own tables.
 - **The deletion state blob is not Go's.** It is JSON with a unix-seconds cursor; the blob is
   opaque to the app and never shared with a Go app.
-- **No local passwords, magic links, avatars, API keys, forfait or mobile login.** The
+- **No local passwords, magic links, avatars, API keys, forfait, mobile login, token exchange
+  (`porte/exchange`) or `porte/kit`.** An exchange request carrying a PKCE `verifier` is
+  refused, since only the mobile flow binds one. The
   columns stay in `SCHEMA` so the tables match Go's.
