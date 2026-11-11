@@ -6,7 +6,6 @@ use tronc::Error;
 
 use super::Kit;
 use super::failure::{fail, no_store, redirect};
-use super::flow::{pkce_challenge, valid_verifier};
 use super::handoff::{Page, render};
 use crate::query::encode_sorted;
 use crate::wire::{ExchangeRequest, ExchangeResponse};
@@ -59,14 +58,10 @@ impl Kit {
         if body.code.is_empty() {
             return Err(Error::invalid("missing code"));
         }
-        let mut lookup = body.code.clone();
         if !body.verifier.is_empty() {
-            if !valid_verifier(&body.verifier) {
-                return Err(Error::unauthorized(INVALID_CODE));
-            }
-            lookup = format!("{lookup}:{}", pkce_challenge(&body.verifier));
+            return Err(Error::unauthorized(INVALID_CODE));
         }
-        let code = match self.inner.codes.consume(&hash_token(&lookup)).await {
+        let code = match self.inner.codes.consume(&hash_token(&body.code)).await {
             Ok(code) => code,
             Err(StoreError::CodeConsumed) => {
                 tracing::warn!("porte: login code replayed");

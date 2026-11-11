@@ -41,11 +41,6 @@ pub fn pkce_challenge(verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
 
-pub(crate) fn valid_verifier(value: &str) -> bool {
-    (43..=128).contains(&value.len())
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~'))
-}
-
 pub(crate) fn cli_state(value: &str) -> String {
     let valid = !value.is_empty()
         && value.len() <= MAX_CLI_STATE
