@@ -63,17 +63,6 @@ impl Default for HttpClient {
     }
 }
 
-#[cfg(feature = "oidc")]
-impl<'c> openidconnect::AsyncHttpClient<'c> for HttpClient {
-    type Error = TransportError;
-    type Future =
-        std::pin::Pin<Box<dyn std::future::Future<Output = Result<HttpResponse, TransportError>> + Send + 'c>>;
-
-    fn call(&'c self, request: HttpRequest) -> Self::Future {
-        Box::pin(self.send(request))
-    }
-}
-
 struct Reqwest(reqwest::Client);
 
 #[async_trait::async_trait]

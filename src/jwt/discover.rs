@@ -5,19 +5,33 @@ use crate::http_client::HttpClient;
 
 const MAX_DOCUMENT: usize = 1 << 20;
 
+/// The fields of `/.well-known/openid-configuration` porte reads.
 #[derive(Default, Deserialize)]
 #[serde(default)]
-struct Discovery {
-    issuer: String,
-    jwks_uri: String,
+pub(crate) struct Discovery {
+    pub(crate) issuer: String,
+    pub(crate) jwks_uri: String,
+    pub(crate) authorization_endpoint: String,
+    pub(crate) token_endpoint: String,
+    pub(crate) userinfo_endpoint: String,
+    pub(crate) scopes_supported: Option<Vec<String>>,
+}
+
+/// Fetches the issuer's discovery document.
+pub(crate) async fn document(http: &HttpClient, issuer: &str) -> Result<Discovery, String> {
+    get_json(http, &document_url(issuer)).await
+}
+
+fn document_url(issuer: &str) -> String {
+    format!("{}/.well-known/openid-configuration", issuer.trim_end_matches('/'))
 }
 
 pub(crate) async fn jwks_uri(http: &HttpClient, issuer: &str) -> Result<String, JwtError> {
-    let url = format!("{}/.well-known/openid-configuration", issuer.trim_end_matches('/'));
-    let document: Discovery = get_json(http, &url)
+    let document = document(http, issuer)
         .await
         .map_err(|error| JwtError::Fetch(format!("discovery failed for {issuer}: {error}")))?;
     if !document.issuer.is_empty() && document.issuer != issuer {
+        let url = document_url(issuer);
         return Err(JwtError::Fetch(format!("{url} publishes issuer {:?}, not {issuer:?}", document.issuer)));
     }
     if document.jwks_uri.is_empty() {

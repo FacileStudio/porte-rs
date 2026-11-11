@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use openidconnect::IssuerUrl;
-use openidconnect::core::CoreProviderMetadata;
-
 use super::bearer::BearerVerifier;
 use super::id_token::IdTokenVerifier;
 use crate::http_client::HttpClient;
+use crate::jwt::discover::{Discovery, document};
 use crate::session::Manager;
 use crate::{Clock, Config, ConfigError, IdentityStore};
 
@@ -43,12 +41,11 @@ pub(crate) async fn arm(
 ) -> Result<Armed, ConfigError> {
     let metadata = discover(cfg, http).await?;
     guard_claims_scope(cfg, &metadata)?;
-    let jwks_uri = metadata.jwks_uri().url().to_string();
     let provider = Provider {
-        authorization_endpoint: metadata.authorization_endpoint().url().to_string(),
-        token_endpoint: metadata.token_endpoint().map(|url| url.url().to_string()).unwrap_or_default(),
-        userinfo_endpoint: metadata.userinfo_endpoint().map(|url| url.url().to_string()).unwrap_or_default(),
-        id_tokens: IdTokenVerifier::new(http.clone(), jwks_uri, &cfg.issuer, &cfg.client_id, now.clone()),
+        id_tokens: IdTokenVerifier::new(http.clone(), metadata.jwks_uri, &cfg.issuer, &cfg.client_id, now.clone()),
+        authorization_endpoint: metadata.authorization_endpoint,
+        token_endpoint: metadata.token_endpoint,
+        userinfo_endpoint: metadata.userinfo_endpoint,
     };
     if !cfg.machine_audience.is_empty() {
         let machine = BearerVerifier::new(cfg, &cfg.machine_audience, http, identities, now).await?;
@@ -61,18 +58,25 @@ pub(crate) async fn arm(
     Ok((Some(provider), cli))
 }
 
-async fn discover(cfg: &Config, http: &HttpClient) -> Result<CoreProviderMetadata, ConfigError> {
+/// Fetches discovery and holds it to what go-oidc's `NewProvider` requires: the issuer byte for
+/// byte, an authorization endpoint and a JWKS URI.
+async fn discover(cfg: &Config, http: &HttpClient) -> Result<Discovery, ConfigError> {
     let failed = |error: String| ConfigError::new(format!("discovery failed for {}: {error}", cfg.issuer));
-    let issuer = IssuerUrl::new(cfg.issuer.clone()).map_err(|error| failed(error.to_string()))?;
-    CoreProviderMetadata::discover_async(issuer, http).await.map_err(|error| failed(error.to_string()))
+    let metadata = document(http, &cfg.issuer).await.map_err(failed)?;
+    if metadata.issuer != cfg.issuer {
+        return Err(failed(format!("the provider publishes issuer {:?}", metadata.issuer)));
+    }
+    if metadata.authorization_endpoint.is_empty() || metadata.jwks_uri.is_empty() {
+        return Err(failed("the document names no authorization_endpoint or jwks_uri".into()));
+    }
+    Ok(metadata)
 }
 
-fn guard_claims_scope(cfg: &Config, metadata: &CoreProviderMetadata) -> Result<(), ConfigError> {
+fn guard_claims_scope(cfg: &Config, metadata: &Discovery) -> Result<(), ConfigError> {
     if !cfg.claims_enabled() {
         return Ok(());
     }
-    let offered = metadata.scopes_supported().map(|scopes| scopes.iter().map(|s| s.to_string()).collect::<Vec<_>>());
-    match offered {
+    match &metadata.scopes_supported {
         None => {
             tracing::warn!(scope = %cfg.claims_scope, "porte: provider advertises no scopes_supported, cannot verify the roles scope");
             Ok(())

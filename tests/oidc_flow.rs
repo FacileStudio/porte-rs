@@ -112,3 +112,10 @@ async fn the_kit_refuses_a_manager_built_from_another_config() {
     let refused = porte::oidc::Kit::new(&common::flow::base_config(), deps).await.err().unwrap();
     assert!(refused.0.contains("OIDC_REDIRECT_URL"), "{refused}");
 }
+
+#[tokio::test]
+async fn boot_refuses_a_discovery_document_that_names_another_issuer() {
+    let published = format!("{ISSUER}/");
+    let refused = harness(|_, idp| idp.state.lock().unwrap().published_issuer = published).await.err().unwrap();
+    assert!(refused.0.contains("the provider publishes issuer \"https://idp.test/\""), "{refused}");
+}
