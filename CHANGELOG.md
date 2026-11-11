@@ -6,6 +6,8 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-11
+
 ### Added
 
 - **`exchange` feature: RFC 8693 token exchange**, a port of Go `porte/exchange`. `Exchanger`
