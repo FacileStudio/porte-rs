@@ -4,27 +4,30 @@ use serde::Deserialize;
 use serde_json::Value;
 use time::OffsetDateTime;
 
+use super::key_set::{KeyError, RemoteKeySet};
 use crate::Clock;
 use crate::http_client::HttpClient;
 use crate::jose::{audience, decode_object, split};
-use crate::jwt::keys::KeyCache;
 
 const NBF_LEEWAY: Duration = Duration::from_secs(5 * 60);
 
 /// Why an ID token or a logout token was refused.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("porte/oidc: {0}")]
-pub struct IdTokenError(pub String);
+pub(crate) enum IdTokenError {
+    /// The token itself is wrong: malformed, unsigned by any known key, or failing a claim.
+    #[error("porte/oidc: {0}")]
+    Invalid(String),
+    /// The provider's keys could not be fetched. Retrying may succeed.
+    #[error("porte/oidc: {0}")]
+    Keys(String),
+}
 
 /// A verified ID token: the subject, the nonce and the whole payload.
 #[derive(Debug, Clone)]
-pub struct IdToken {
-    /// `sub`.
-    pub subject: String,
-    /// `nonce`.
-    pub nonce: String,
-    /// The payload as JSON.
-    pub claims: Value,
+pub(crate) struct IdToken {
+    pub(crate) subject: String,
+    pub(crate) nonce: String,
+    pub(crate) claims: Value,
 }
 
 #[derive(Default, Deserialize)]
@@ -39,7 +42,7 @@ struct Registered {
 }
 
 pub(crate) struct IdTokenVerifier {
-    keys: KeyCache,
+    keys: RemoteKeySet,
     issuer: String,
     client_id: String,
     now: Clock,
@@ -47,22 +50,24 @@ pub(crate) struct IdTokenVerifier {
 
 impl IdTokenVerifier {
     pub(crate) fn new(http: HttpClient, jwks_uri: String, issuer: &str, client_id: &str, now: Clock) -> Self {
-        let keys = KeyCache::new(http, jwks_uri, crate::jwt::DEFAULT_CACHE_TTL, now.clone());
+        let keys = RemoteKeySet::new(http, jwks_uri, now.clone());
         IdTokenVerifier { keys, issuer: issuer.to_owned(), client_id: client_id.to_owned(), now }
     }
 
     /// Verifies as go-oidc's `IDTokenVerifier` does: RS256 only, signature first, then `iss`
     /// byte for byte, `aud` naming the client, `exp` strictly ahead, `nbf` with 5 minutes of
-    /// leeway. A missing `sub` is accepted here; the caller decides.
+    /// leeway. A missing `sub` is accepted here; the caller decides. Keys follow
+    /// [`RemoteKeySet`].
     pub(crate) async fn verify(&self, raw: &str) -> Result<IdToken, IdTokenError> {
-        let refuse = |reason: &str| IdTokenError(reason.to_owned());
+        let refuse = |reason: &str| IdTokenError::Invalid(reason.to_owned());
         let token = split(raw).map_err(|_| refuse("malformed jwt"))?;
         if token.header.alg != "RS256" {
             return Err(refuse("malformed jwt: unexpected signature algorithm"));
         }
-        let keys = self.keys.candidates(&token.header.kid).await.map_err(|error| IdTokenError(error.to_string()))?;
-        if !keys.iter().any(|key| crate::rs256::verify(key, &token.signing_input, &token.signature)) {
-            return Err(refuse("failed to verify signature"));
+        match self.keys.verify(&token.header.kid, &token.signing_input, &token.signature).await {
+            Ok(()) => {}
+            Err(KeyError::Unverified) => return Err(refuse("failed to verify signature")),
+            Err(KeyError::Fetch(reason)) => return Err(IdTokenError::Keys(reason)),
         }
         let registered: Registered = decode_object(&token.payload).map_err(|_| refuse("failed to unmarshal claims"))?;
         let claims: Value = serde_json::from_slice(&token.payload).map_err(|_| refuse("failed to unmarshal claims"))?;
@@ -71,9 +76,10 @@ impl IdTokenVerifier {
     }
 
     fn check(&self, token: &Registered) -> Result<(), IdTokenError> {
-        let refuse = |reason: &str| Err(IdTokenError(reason.to_owned()));
-        let audience = audience(token.aud.clone()).map_err(|_| IdTokenError("failed to unmarshal claims".into()))?;
-        let expiry = unix(token.exp.as_ref()).map_err(|_| IdTokenError("failed to unmarshal claims".into()))?;
+        let refuse = |reason: &str| Err(IdTokenError::Invalid(reason.to_owned()));
+        let unreadable = || IdTokenError::Invalid("failed to unmarshal claims".into());
+        let audience = audience(token.aud.clone()).map_err(|_| unreadable())?;
+        let expiry = unix(token.exp.as_ref()).map_err(|_| unreadable())?;
         let not_before = token.nbf.as_ref().filter(|value| !value.is_null()).map(|value| unix(Some(value)));
         if token.iss.as_deref().unwrap_or_default() != self.issuer {
             return refuse("id token issued by a different provider");

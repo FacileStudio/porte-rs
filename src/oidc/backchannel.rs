@@ -12,6 +12,7 @@ use tronc::Error;
 use super::Kit;
 use super::failure::no_store;
 use super::form::parse_form;
+use super::id_token::IdTokenError;
 use crate::StoreError;
 use crate::wire::LogoutResponse;
 
@@ -22,8 +23,6 @@ const MAX_FORM_BYTES: usize = 10 << 20;
 #[serde(default)]
 struct LogoutClaims {
     events: Option<HashMap<String, Value>>,
-    #[serde(rename = "jti")]
-    _jti: Option<String>,
 }
 
 impl Kit {
@@ -37,7 +36,13 @@ impl Kit {
     async fn logout_subject(&self, request: Request) -> Result<String, Error> {
         let raw = logout_token(request).await?;
         let provider = self.provider().ok_or_else(|| Error::not_found("not found"))?;
-        let token = provider.id_tokens.verify(&raw).await.map_err(|_| Error::unauthorized("invalid logout token"))?;
+        let token = provider.id_tokens.verify(&raw).await.map_err(|error| match error {
+            IdTokenError::Keys(reason) => {
+                tracing::warn!(%reason, "porte: back-channel logout could not fetch the provider keys");
+                Error::unavailable("could not fetch the provider keys")
+            }
+            IdTokenError::Invalid(_) => Error::unauthorized("invalid logout token"),
+        })?;
         if !token.nonce.is_empty() {
             return Err(Error::unauthorized("a logout token must not carry a nonce"));
         }
