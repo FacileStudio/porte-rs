@@ -25,6 +25,8 @@ async fn a_cli_login_redirects_to_the_loopback_with_its_nonce_and_the_code_redee
     assert_eq!((location.host_str(), location.port()), (Some("127.0.0.1"), Some(8765)));
     let query: std::collections::HashMap<_, _> = location.query_pairs().into_owned().collect();
     assert_eq!(query["state"], "nonce-1");
+    let bound = json!({ "code": query["code"], "verifier": "v".repeat(43) }).to_string();
+    assert_eq!(exchange(&flow, &bound, "/auth/oidc/exchange").await.status, 401, "a verifier redeemed a cli code");
     let first = exchange(&flow, &json!({ "code": query["code"] }).to_string(), "/auth/oidc/exchange").await;
     assert_eq!((first.status, first.header("cache-control").as_deref()), (200, Some("no-store")));
     let token: Value = serde_json::from_str(&first.body).unwrap();
