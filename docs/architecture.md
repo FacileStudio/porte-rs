@@ -34,6 +34,8 @@ Browser / CLI ──▶ app router (axum) ──▶ Manager::require_auth layer 
 | `directory` | The Registre snapshot, the sync loop, account deletions |
 | `spaces` | The membership guard and its conformance suite |
 | `mcpauth` | The resource server for an app's `/mcp` |
+| `exchange` | RFC 8693 token exchange: a per-user token for another suite app |
+| `forfait` | The entitlements store: plan limits and switches from the directory snapshot |
 
 The root depends on no database driver: an app's own stores compile against plain types.
 
@@ -174,13 +176,18 @@ WebSocket route calls `sessions.check_origin(&parts)` before upgrading.
 - **The CLI code page draws no borders**, per the suite UI rule.
 - **`mcpauth` has no Go SDK under it.** `RequireLayer` reproduces `RequireBearerToken`'s
   answers and porte's challenge codes itself. `CheckPlan` and `PlanGate` are not ported:
-  `/mcp` is never plan-gated and no Rust app reads `forfait`.
+  `/mcp` is never plan-gated.
 - **No `pg` spaces store.** Go `porte/pg` owns no space tables: membership is app data. The
   conformance suite runs in this repo against `spaces::Memory` and an unscoped store; Feuilles
   and Docs run it against their own `Store` over their own tables.
 - **The deletion state blob is not Go's.** It is JSON with a unix-seconds cursor; the blob is
   opaque to the app and never shared with a Go app.
-- **No local passwords, magic links, avatars, API keys, forfait, mobile login, token exchange
-  (`porte/exchange`) or `porte/kit`.** An exchange request carrying a PKCE `verifier` is
+- **`exchange` refreshes on its own task.** Go detaches the refresh from the caller's context
+  with `context.WithoutCancel`; Rust spawns it, so a dropped request future still persists the
+  rotated refresh token. `Exchanger::call` is Go's `Do` (`do` is a Rust keyword), and `Source`
+  takes the request's `Identity` instead of a context.
+- **`forfait` logs through `tracing`** and takes its issuer with `Store::with_issuer`. Its
+  export document is the same JSON Go writes.
+- **No local passwords, magic links, avatars, API keys, mobile login or `porte/kit`.** An exchange request carrying a PKCE `verifier` is
   refused, since only the mobile flow binds one. The
   columns stay in `SCHEMA` so the tables match Go's.

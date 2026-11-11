@@ -24,6 +24,10 @@ test vectors generated from Go `porte` v0.16.1.
 - Verifies RS256 bearer JWTs offline against the issuer's JWKS, with an optional scope gate
 - Guards an app's `/mcp` as an OAuth 2.1 resource server, with RFC 9728 metadata and
   first-call account provisioning
+- Exchanges the signed-in user's stored Registre grant for a short-lived token to another
+  suite app (RFC 8693), refreshing and rotating the refresh token safely (feature `exchange`)
+- Enforces the plan a space or person pays for from the entitlements in the directory snapshot
+  (feature `forfait`)
 - Ships the identity tables (`porte_users`, `porte_identities`, `porte_sessions`, ...) byte for
   byte as Go writes them, with stores on `sqlx` and AES-256-GCM sealing of stored OIDC tokens
 
@@ -51,6 +55,8 @@ porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.5.2", feat
 | `oidc` | `oidc` (the Registre kit), `jwt`, `http_client` |
 | `directory` | `directory`: the snapshot client, `Syncer`, `Deletions`, `http_client` |
 | `spaces` | `spaces`: `Guard`, `Ladder`, the `Store` trait and `spaces::conformance` |
+| `exchange` | `exchange`: `Exchanger`, `Source`, `Target`, RFC 8693 against Registre's token endpoint |
+| `forfait` | `forfait`: the entitlements `Store` over the directory snapshot (pulls in `directory`) |
 | `mcp` | `mcpauth`: `Verifier` (also a `tronc::mcp::Verifier`), `RequireLayer`, the metadata route (pulls in `oidc` and tronc's `mcp`) |
 
 The wiring every app writes, in its `auth` module, is in

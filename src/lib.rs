@@ -2,7 +2,7 @@
 //!
 //! It makes a Rust app a Registre client with the routes, cookie, tokens, tables and space
 //! model of a Go app. Each part sits behind a feature: `pg`, `oidc`, `directory`, `spaces`,
-//! `mcp`. The root, [`token`], [`store`] and [`session`] are always on.
+//! `mcp`, `exchange`, `forfait`. The root, [`token`], [`store`] and [`session`] are always on.
 
 #![deny(unused, dead_code)]
 #![warn(missing_docs)]
@@ -21,9 +21,13 @@ pub mod wire;
 
 #[cfg(feature = "directory")]
 pub mod directory;
+#[cfg(feature = "exchange")]
+pub mod exchange;
+#[cfg(feature = "forfait")]
+pub mod forfait;
 #[cfg(feature = "net")]
 pub mod http_client;
-#[cfg(feature = "net")]
+#[cfg(any(feature = "oidc", feature = "directory"))]
 mod jose;
 #[cfg(feature = "oidc")]
 pub mod jwt;
@@ -35,7 +39,7 @@ pub mod mcpauth;
 pub mod oidc;
 #[cfg(feature = "pg")]
 pub mod pg;
-#[cfg(feature = "net")]
+#[cfg(any(feature = "oidc", feature = "directory"))]
 mod rs256;
 #[cfg(feature = "spaces")]
 pub mod spaces;

@@ -4,8 +4,16 @@
 pub mod codes;
 #[cfg(feature = "pg")]
 pub mod db;
+#[cfg(feature = "exchange")]
+pub mod exchange;
+#[cfg(feature = "exchange")]
+pub mod exchange_registre;
+#[cfg(feature = "exchange")]
+pub mod exchange_store;
 #[cfg(feature = "oidc")]
 pub mod flow;
+#[cfg(feature = "forfait")]
+pub mod forfait;
 pub mod harness;
 pub mod http;
 #[cfg(feature = "oidc")]

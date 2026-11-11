@@ -6,6 +6,19 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`exchange` feature: RFC 8693 token exchange**, a port of Go `porte/exchange`. `Exchanger`
+  turns the user's stored Registre refresh token into a short-lived token for another suite app
+  (`Target { audience, scopes }`), caches it per user, audience and scopes until 30 s before it
+  expires, serializes refreshes per user across audiences and saves each rotated refresh token.
+  `call` retries once on a downstream 401, `Source` binds a target to the request's `Identity`,
+  and `ExchangeError` maps `Reconnect` to a 412 and `NoUser` to a 401 `tronc::Error`.
+- **`forfait` feature: plan enforcement**, a port of Go `porte/forfait`. `Store` reads the
+  entitlements in the directory snapshot and answers `enabled`, `limit` and `check` for a space
+  or a person, failing open only before the first authoritative snapshot. `export` and `import`
+  keep that state across a restart, and `CheckError::Limit` becomes a 402 with the upgrade URL.
+
 ## [0.5.2] - 2026-11-11
 
 ### Fixed
