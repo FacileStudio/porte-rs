@@ -22,6 +22,12 @@ the struct.
 | `SSO_ONLY` | `sso_only` | no | `false` | Reported by `GET /auth/config` |
 | `PORTE_TOKEN_KEY` | (`pg::TokenSealer::parse`) | no | — | Seals stored OIDC tokens. Comma-separated 32-byte secrets, newest first, hex or base64 |
 
+`exchange::Config::from_porte(&config, store.identities())` reads `issuer`, `client_id` and
+`client_secret` from this config, so the token exchange needs no variable of its own. It needs
+the stored refresh token, so Registre must grant this client `offline_access` (porte asks for
+it) and a `token_exchange` seed entry for each audience and scope it asks for. Set
+`PORTE_TOKEN_KEY` so those stored tokens are sealed.
+
 ## Fields with no variable
 
 | Field | Default | What it does |

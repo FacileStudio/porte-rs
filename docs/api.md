@@ -258,6 +258,76 @@ pub mod conformance { pub async fn run(new_store) -> Result<(), Vec<String>>; pu
     SPACE_A, SPACE_B, USER_OWNER, USER_ADMIN, USER_MEMBER, USER_CO_OWNER, USER_OUTSIDER }
 ```
 
+## `exchange` (`exchange`)
+
+```rust
+pub const DEFAULT_MARGIN: Duration;  // 30 s
+pub struct Target { pub audience: String, pub scopes: Vec<String> }
+impl Target { pub fn new(audience, scopes: impl IntoIterator<Item = impl Into<String>>) -> Target }
+pub struct Config { issuer, client_id, client_secret, identities: Arc<dyn IdentityStore>,
+    http: HttpClient, margin: Duration, clock: Clock }
+impl Config { pub fn new(issuer, client_id, client_secret, identities) -> Config;
+    pub fn from_porte(&porte::Config, identities: Arc<dyn IdentityStore>) -> Config }
+pub struct Exchanger;  // Clone, one per process, shared by every audience
+impl Exchanger { pub fn new(Config) -> Result<Exchanger, ConfigError>;
+    pub async fn token(&self, user_id: i64, &Target) -> Result<String, ExchangeError>;
+    pub async fn call<F, Fut, B, E>(&self, user_id, &Target, request: F) -> Result<http::Response<B>, E>
+        where F: FnMut(String) -> Fut, Fut: Future<Output = Result<http::Response<B>, E>>, E: From<ExchangeError>;
+    pub fn forget(&self, user_id, &Target); pub fn forget_user(&self, user_id);
+    pub fn source(&self, Target) -> Source }
+pub struct Source;  // Clone
+impl Source { pub async fn token(&self, &Identity) -> Result<String, ExchangeError>;
+    pub async fn call(&self, &Identity, request) -> Result<http::Response<B>, E>;
+    pub fn forget(&self, &Identity); pub fn target(&self) -> &Target }
+pub enum ExchangeError { Reconnect, NoUser, Unavailable(String), Refused { status: u16, code: String }, Identities(String) }
+impl From<ExchangeError> for tronc::Error;  // Reconnect → 412, NoUser → 401, the rest → 500
+```
+
+| Registre answers | `token` returns |
+|---|---|
+| no federated identity under the issuer, no refresh token, or `invalid_grant` on the refresh | `Reconnect` (the user signs in again) |
+| `invalid_grant` on the exchange | one forced refresh and retry, then `Reconnect` |
+| a refresh refused while another replica rotated the stored token | one retry with the stored token |
+| any other 4xx `error` (`invalid_scope`, `invalid_target`, `invalid_client`, ...) | `Refused { status, code }`, `code` `unknown` when none |
+| a network error, a 5xx, a 200 with no `access_token`, a discovery failure | `Unavailable` |
+
+A token is cached per `(user, audience, sorted scopes)` until its `expires_in` minus the
+margin, one minute when Registre names no lifetime. Refreshes are serialized per user across
+audiences, and the rotated refresh token is saved through the `IdentityStore`; when the save
+fails it is kept in memory and used next. `call` forgets the token and retries once on a 401.
+
+```rust
+let exchanger = exchange::Exchanger::new(exchange::Config::from_porte(&config, store.identities()))?;
+let bulle = exchanger.source(exchange::Target::new("bulle", ["bulle.read", "bulle.write"]));
+let token = bulle.token(&identity).await?;
+```
+
+## `forfait` (`forfait`)
+
+```rust
+pub enum Kind { Bool, Limit }
+pub struct Feature { pub key: String, pub kind: Kind, pub default: serde_json::Value }
+impl Feature { pub fn bool(key, default: bool) -> Feature; pub fn limit(key, default: i64) -> Feature }
+pub struct Scope { pub space_id: String, pub subject: String }
+impl Scope { pub fn space(id) -> Scope; pub fn person(subject) -> Scope }
+pub enum CheckError { Limit { key, limit: i64, upgrade_url: String }, InvalidUsage }
+impl From<CheckError> for tronc::Error;  // Limit → 402 with upgrade_url, InvalidUsage → 500
+pub enum ImportError { AlreadyApplied, Invalid(String) }
+pub fn upgrade_url(issuer: &str, space_id: &str) -> String;  // <issuer>/spaces[/<space_id>]
+pub struct Store;
+impl Store { pub fn new(features: impl IntoIterator<Item = Feature>) -> Store; pub fn with_issuer(self, issuer) -> Store;
+    pub fn apply(&self, &directory::Snapshot);
+    pub fn enabled(&self, &Scope, key) -> bool; pub fn limit(&self, &Scope, key) -> i64;  // -1 unlimited
+    pub fn check(&self, &Scope, key, used: i64, adding: i64) -> Result<(), CheckError>;
+    pub fn export(&self) -> Vec<u8>; pub fn import(&self, &[u8]) -> Result<(), ImportError>; pub fn reset(&self) }
+```
+
+The store fails open (every declared feature on and unlimited) only until a snapshot with a
+non-zero `entitlements_revision` is applied. A person's scope reads the values Registre serves
+under `people`, which Ardoise already computes as the most generous across the spaces the person
+owns. Call `apply` from the app's `directory::Apply`, save `export()` after it, and `import` the
+saved bytes at boot before the first pull.
+
 ## `mcpauth` (`mcp`)
 
 ```rust

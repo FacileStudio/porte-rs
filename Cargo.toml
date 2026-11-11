@@ -16,6 +16,8 @@ oidc = ["net"]
 spaces = []
 mcp = ["oidc", "tronc/mcp"]
 directory = ["net", "dep:tokio-util"]
+exchange = ["net", "tokio/rt"]
+forfait = ["directory"]
 
 [dependencies]
 async-trait = "0.1.92"
