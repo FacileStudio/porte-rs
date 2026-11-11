@@ -6,7 +6,7 @@ use time::format_description::well_known::Rfc3339;
 
 use super::snapshot::{Deleted, Snapshot, decode};
 use super::{DirectoryError, MAX_SNAPSHOT_BYTES};
-use crate::http_client::HttpClient;
+use crate::http_client::{BodyLimit, HttpClient};
 use crate::query::query_escape;
 
 /// Reads Registre's directory with this app's client credentials.
@@ -60,6 +60,7 @@ impl Client {
         let request = http::Request::get(&url)
             .header(http::header::AUTHORIZATION, format!("Basic {basic}"))
             .header(http::header::CONTENT_TYPE, "application/json")
+            .extension(BodyLimit(MAX_SNAPSHOT_BYTES))
             .body(Vec::new())
             .map_err(|error| DirectoryError::Unavailable(error.to_string()))?;
         let response = self.http.send(request).await.map_err(|error| DirectoryError::Unavailable(error.to_string()))?;
