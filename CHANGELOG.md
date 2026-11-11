@@ -6,6 +6,13 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-11
+
+### Changed
+
+- **tronc-rs pinned at v0.4.0** (was v0.3.0). An app on tronc-rs v0.4.0 (for `bulle`) now builds
+  one copy of `tronc`, so porte's `tronc::Error` mappings and the app's are the same type.
+
 ## [0.6.0] - 2026-11-11
 
 ### Added
