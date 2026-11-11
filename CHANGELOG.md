@@ -6,6 +6,27 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **ID and logout tokens follow go-oidc's key set.** They no longer share the bearer cache,
+  whose keys expired after an hour and failed hard when the refetch failed. Cached keys never
+  expire. A signature no cached key verifies refetches the JWKS, at most every 30 s, and a
+  failed fetch keeps the old keys. A back-channel logout that cannot be checked because the
+  JWKS is unreachable now answers `503 could not fetch the provider keys`, which Registre
+  retries, instead of `401`.
+- **Outbound response bodies are capped while they are read.** `HttpClient::new` stops one byte
+  past 1 MiB (8 MiB for the directory) instead of buffering the whole body first.
+
+### Removed
+
+- **The `openidconnect` dependency.** Discovery goes through the `jwt` fetch. This drops rsa
+  0.9.10 (RUSTSEC-2023-0071) and the duplicate `oauth2`, `hmac`, `rand` and `pkcs*` crates from
+  every consumer's lockfile. With it goes `impl openidconnect::AsyncHttpClient for HttpClient`.
+- **`oidc::IdToken` and `oidc::IdTokenError`.** No public function took or returned them.
+- **The PKCE verifier lookup in `POST /auth/oidc/exchange`.** Only the mobile flow, which
+  porte-rs does not port, binds a code to a verifier, so a request carrying one is refused
+  outright, as before.
+
 ## [0.5.1] - 2026-11-10
 
 ### Changed
