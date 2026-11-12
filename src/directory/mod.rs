@@ -16,6 +16,7 @@
 
 mod client;
 mod deletions;
+mod erased;
 mod keys;
 mod poll;
 mod push;
@@ -26,7 +27,7 @@ mod syncer;
 use std::time::Duration;
 
 pub use client::Client;
-pub use deletions::{Deletions, IdentityEraser, PersonDeleted};
+pub use deletions::{Deletions, IdentityEraser, IdentityHolder, PersonDeleted};
 pub use snapshot::{Deleted, Member, Person, Snapshot, Space};
 pub use state::StateStore;
 pub use syncer::{Apply, Syncer};

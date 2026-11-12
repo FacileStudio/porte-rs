@@ -9,6 +9,7 @@
 
 mod config;
 mod config_checks;
+mod erased;
 mod identity;
 mod query;
 pub mod session;
@@ -47,6 +48,7 @@ pub mod spaces;
 use std::time::Duration;
 
 pub use config::Config;
+pub use erased::{ErasedSubjects, SubjectErased};
 pub use identity::{Claims, Identity, StoredIdentity, TokenSet, normalize_locale};
 pub use session_revocation::SessionRevocation;
 pub use session_store::SessionStore;

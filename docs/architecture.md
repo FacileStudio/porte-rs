@@ -83,11 +83,15 @@ Registre ── POST /api/registre/sync (empty) ──▶ Syncer::nudge ─┐ 2
 Registre ── POST /api/registre/deletions (secevent+jwt) ──▶ Deletions: verify RS256, iss, aud, window
          ◀── GET /api/directory/deletions?since=cursor-1min ── Deletions::poll, page by page
                                                    each person: PersonDeleted (app) → IdentityEraser (porte)
+                                                   handled before? only again if IdentityHolder says the account came back
 ```
 
 The nudge carries nothing and is trusted for nothing. The cursor only moves past people
 handled before the earliest failure, and handled subjects are remembered for the retention
-window, so a retried page never erases twice.
+window, so a retried page never erases twice, unless the account came back: with
+`Deletions::with_holds`, a handled subject that an account holds again is erased again. With
+`Kit::with_erased(deletions)`, the login callback, bearer provisioning and the profile sync
+refuse a handled subject before the user write, so the account does not come back at all.
 
 ## Data model
 
@@ -125,7 +129,9 @@ impl Kits {
             client_secret: cfg.client_secret.clone(), http: http.clone() };
         let syncer = directory::Syncer::new(client.clone(), Arc::new(SpacesApply::new(pool)), Duration::ZERO);
         let deletions = directory::Deletions::new(client, Arc::new(AppData::new(pool)),
-            Some(Arc::new(store.clone())), Some(Arc::new(DeletionState::new(pool))), Duration::ZERO);
+            Some(Arc::new(store.clone())), Some(Arc::new(DeletionState::new(pool))), Duration::ZERO)
+            .with_holds(Arc::new(store.clone()));
+        let oidc = oidc.with_erased(Arc::new(deletions.clone()));
         let mcp = Arc::new(mcpauth::Verifier::new(mcpauth::Config {
             issuer: cfg.issuer.clone(), resource: env.mcp_resource.clone(), scope_prefix: "feuilles".into(),
             audience: cfg.client_id.clone(), identities: store.identities(), provision: true,

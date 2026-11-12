@@ -37,6 +37,9 @@ impl StoredIdentity { roles_stale(now, ttl) }
 pub fn normalize_locale(tag: &str) -> String;
 pub type Clock = Arc<dyn Fn() -> OffsetDateTime + Send + Sync>;
 pub fn system_clock() -> Clock;
+#[async_trait] pub trait ErasedSubjects { async fn erased(&self, provider, subject) -> Result<bool, StoreError> }  // directory::Deletions
+pub struct SubjectErased;  // the cause of an erased-subject refusal
+impl SubjectErased { pub fn caused(&tronc::Error) -> bool }  // Go errors.Is(err, porte.ErrSubjectErased)
 ```
 
 ## `token` (always)
@@ -131,6 +134,7 @@ impl Store {
     pub fn pool(&self) -> &PgPool;
     pub fn users / identities / sessions / login_codes(&self) -> Arc<dyn Trait>;
     pub async fn erase_identity(&self, provider, subject) -> Result<(), StoreError>;
+    pub async fn holds_identity(&self, provider, subject) -> Result<bool, StoreError>;  // exact provider, as erase_identity
     pub async fn reseal_identities(&self) -> Result<u64, StoreError>;
     pub async fn find_by_user(&self, provider, user_id) -> Result<(String, String), StoreError>;  // (provider, subject), NotFound
 }
@@ -151,12 +155,21 @@ impl Kit {
     pub async fn new(cfg: &Config, deps: Deps) -> Result<Kit, ConfigError>;
     pub fn routes<S>(&self) -> axum::Router<S>;
     pub fn config(&self) -> &Config; pub fn enabled(&self) -> bool; pub fn sessions(&self) -> &Manager;
+    pub fn with_erased(self, erased: Arc<dyn ErasedSubjects>) -> Kit;  // Go oidc.Deps.Erased; shared by every clone
     pub async fn provision_bearer(&self, token: &jwt::Claims) -> Result<Identity, ProvisionError>;
 }
 pub async fn resolve_bearer(identities: &dyn IdentityStore, issuer: &str, claims: &jwt::Claims) -> Result<Identity, StoreError>;
 pub fn pkce_challenge(verifier: &str) -> String;
-pub enum ProvisionError { Refused(String), Store(String) }
+pub enum ProvisionError { Refused(String), Erased, Store(String) }
 ```
+
+`Kit::with_erased` (normally the app's `directory::Deletions`) is optional. When set, the login
+callback, `provision_bearer` and `POST /auth/sync-profile` ask `erased(provider, subject)` before
+the user write and refuse an erased identity with a tronc `permission_denied` whose cause is
+`SubjectErased`: the callback sends the browser to the login page with `this account was
+deleted`, `provision_bearer` returns `ProvisionError::Erased` (mcpauth answers an invalid
+token), and the profile sync answers 403. A ledger that cannot be read fails the request as
+internal (`ProvisionError::Store` on provisioning) and creates nothing.
 
 `Kit::new` arms the bearer-JWT path of the session manager when `machine_audience` is set,
 and attaches itself as the claims source when `claims_scope` is set.
@@ -225,12 +238,25 @@ impl Syncer { pub fn new(client, apply: Arc<dyn Apply>, interval) -> Syncer;
 
 #[async_trait] pub trait PersonDeleted { async fn on_person_deleted(&self, provider, subject) -> Result<(), DirectoryError> }
 #[async_trait] pub trait IdentityEraser { async fn erase_identity(&self, provider, subject) -> Result<(), DirectoryError> }  // pg::Store
+#[async_trait] pub trait IdentityHolder { async fn holds_identity(&self, provider, subject) -> Result<bool, DirectoryError> }  // pg::Store
 #[async_trait] pub trait StateStore { async fn load(&self) -> Result<Vec<u8>, _>; async fn save(&self, &[u8]) -> Result<(), _> }
 pub struct Deletions;  // Clone
 impl Deletions { pub fn new(client, on_deleted, eraser: Option<_>, store: Option<_>, interval) -> Deletions;
     pub async fn poll(&self) -> Result<(), DirectoryError>; pub async fn run(&self, shutdown: CancellationToken);
-    pub fn route<S>(&self) -> MethodRouter<S> }
+    pub fn route<S>(&self) -> MethodRouter<S>;
+    pub fn with_holds(self, holds: Arc<dyn IdentityHolder>) -> Deletions;  // Go Deletions.Holds
+    pub async fn erased(&self, provider, subject) -> Result<bool, DirectoryError> }  // Go Deletions.Erased
+impl porte::ErasedSubjects for Deletions
 ```
+
+A subject already handled is skipped, unless the `with_holds` holder reports that an account
+holds it again (a sign-in, a provisioning call or a bearer token that raced the erasure). Then
+the person is erased again at once, on push and on poll, with no restart, and recorded again;
+a failed check fails the notice as a failed callback does (the push answers 500, the poll keeps
+its cursor before it). Without `with_holds` a handled subject is skipped, as before.
+`erased(provider, subject)` answers from the `StateStore`, read on every call, whether the
+receiver handled that subject, so replicas that do not run the receiver answer the same.
+Another provider (one trailing slash aside), an empty subject or no `StateStore` answers false.
 
 | Route | Answer |
 |---|---|

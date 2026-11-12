@@ -63,6 +63,7 @@ impl Kit {
             claims.email = identity.email.clone();
         }
         claims.tokens = stored.tokens.clone();
+        self.refuse_erased(&claims).await?;
         self.inner.users.upsert_from_oidc(&claims).await.map_err(from_store)?;
         stored.synced_at = Some(self.now());
         self.inner

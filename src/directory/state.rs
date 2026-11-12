@@ -34,6 +34,14 @@ impl DeletionState {
         }
     }
 
+    pub(crate) fn decode(raw: &[u8]) -> Result<DeletionState, DirectoryError> {
+        match raw.is_empty() {
+            true => Ok(DeletionState::default()),
+            false => serde_json::from_slice(raw)
+                .map_err(|error| DirectoryError::Failed(format!("decode the deletion state: {error}"))),
+        }
+    }
+
     pub(crate) fn done(&self, subject: &str) -> bool {
         self.done.contains_key(subject)
     }
@@ -56,11 +64,7 @@ impl Deletions {
             }
             None => Vec::new(),
         };
-        let state = match raw.is_empty() {
-            true => DeletionState::default(),
-            false => serde_json::from_slice(&raw)
-                .map_err(|error| DirectoryError::Failed(format!("decode the deletion state: {error}")))?,
-        };
+        let state = DeletionState::decode(&raw)?;
         *slot = Some(state.clone());
         Ok(state)
     }

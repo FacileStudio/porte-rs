@@ -86,6 +86,7 @@ impl Kit {
     /// with the tokens. Returns the session template bound to that identity.
     pub(crate) async fn persist(&self, mut claims: Claims, tokens: TokenSet) -> Result<Session, Error> {
         claims.tokens = tokens.clone();
+        self.refuse_erased(&claims).await?;
         let user_id = self.inner.users.upsert_from_oidc(&claims).await.map_err(from_store)?;
         let now = self.now();
         let stored = StoredIdentity {

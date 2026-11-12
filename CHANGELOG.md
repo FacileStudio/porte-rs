@@ -6,6 +6,39 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+The erased-subject fix of Go porte v0.19.0 and `directory` v0.5.0. Opt-in: an app that only
+bumps behaves as before, unless it matches `ProvisionError` exhaustively. No migration, no
+route, cookie or schema change, and no conformance vector changed in Go.
+
+### Fixed
+
+- **`directory`: an account re-created after an erasure is erased again, without a restart.**
+  `Deletions` skipped every notice for a subject it had handled, so an account that came back
+  (a Bulle provisioning call, a bearer token minted before the erasure, an MCP first call)
+  survived re-pushes and re-polls. `Deletions::with_holds(Arc<dyn IdentityHolder>)` asks the
+  holder about every handled subject that arrives again; when an account holds it, the person
+  is erased again (`PersonDeleted`, then `IdentityEraser`) and recorded again, on push and on
+  poll. Only that subject is touched. A failed check fails the notice: the push answers 500 and
+  the poll keeps its cursor before it. Re-running the callbacks for every repeat instead would
+  re-erase each poll's one-minute overlap.
+
+### Added
+
+- `directory::IdentityHolder` and `pg::Store::holds_identity(provider, subject)`, which
+  implements it, matching the provider exactly as `erase_identity` does.
+- `directory::Deletions::erased(provider, subject)`. It reads the `StateStore` on every call,
+  never the receiver's in-memory copy, so a replica that does not run the receiver answers the
+  same. No `StateStore` method is added; no `StateStore` answers false.
+- `porte::ErasedSubjects` (implemented by `Deletions`) and `porte::SubjectErased`, the cause of
+  the refusal, with `SubjectErased::caused(&tronc::Error)` for Go's `errors.Is`.
+- `oidc::Kit::with_erased(Arc<dyn ErasedSubjects>)`, Go's `oidc.Deps.Erased`: the login
+  callback, `provision_bearer` and the profile sync refuse an erased identity before the user
+  write with a 403 `permission_denied`. A ledger that cannot be read fails closed as internal.
+  It is a setter shared by every clone of the kit rather than a `Deps` field, so existing
+  `Deps` literals still compile and the kit can be built before `Deletions`.
+- `oidc::ProvisionError::Erased`: provisioning refused for an erased subject. mcpauth answers
+  an invalid token, as for `Refused`. A `match` on `ProvisionError` needs the new arm.
+
 ## [0.6.1] - 2026-11-11
 
 ### Changed

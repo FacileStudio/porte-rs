@@ -4,7 +4,7 @@ use super::Kit;
 use super::bearer::resolve_bearer;
 use super::failure::caller_error;
 use crate::jwt::Claims as TokenClaims;
-use crate::{Claims, Identity, StoreError, TokenSet};
+use crate::{Claims, Identity, StoreError, SubjectErased, TokenSet};
 
 /// Why [`Kit::provision_bearer`] did not return an account.
 #[derive(Debug, thiserror::Error)]
@@ -13,6 +13,10 @@ pub enum ProvisionError {
     /// roles scope is configured, OIDC off, or the app's store refused it.
     #[error("porte/oidc: the account cannot be provisioned from this token: {0}")]
     Refused(String),
+    /// The identity belongs to a person the app already erased ([`crate::SubjectErased`]). A
+    /// refusal as [`ProvisionError::Refused`] is: mcpauth answers an invalid token.
+    #[error("porte/oidc: the account cannot be provisioned from this token: this account was deleted")]
+    Erased,
     /// A store failed. Not the token's fault.
     #[error("porte/oidc: provisioning failed: {0}")]
     Store(String),
@@ -35,9 +39,12 @@ impl Kit {
             return Ok(found);
         }
         let claims = self.claims_from_access_token(token)?;
-        self.persist(claims, TokenSet::default()).await.map_err(|error| match caller_error(&error) {
-            true => ProvisionError::Refused(error.message),
-            false => ProvisionError::Store(error.to_string()),
+        self.persist(claims, TokenSet::default()).await.map_err(|error| {
+            match (SubjectErased::caused(&error), caller_error(&error)) {
+                (true, _) => ProvisionError::Erased,
+                (false, true) => ProvisionError::Refused(error.message),
+                (false, false) => ProvisionError::Store(error.to_string()),
+            }
         })?;
         tracing::info!(subject = %token.subject, "porte: provisioned an account from a bearer token");
         self.existing(token).await?.ok_or_else(|| ProvisionError::Store("the provisioned account vanished".into()))
