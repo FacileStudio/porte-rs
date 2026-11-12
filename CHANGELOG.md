@@ -6,6 +6,8 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-12
+
 The erased-subject fix of Go porte v0.19.0 and `directory` v0.5.0. Opt-in: an app that only
 bumps behaves as before, unless it matches `ProvisionError` exhaustively. No migration, no
 route, cookie or schema change, and no conformance vector changed in Go.
