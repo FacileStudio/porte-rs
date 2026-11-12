@@ -4,6 +4,8 @@
 pub mod codes;
 #[cfg(feature = "pg")]
 pub mod db;
+#[cfg(feature = "directory")]
+pub mod erasure;
 #[cfg(feature = "exchange")]
 pub mod exchange;
 #[cfg(feature = "exchange")]
@@ -22,6 +24,8 @@ pub mod idp;
 pub mod keys;
 #[cfg(feature = "oidc")]
 pub mod kit;
+#[cfg(feature = "oidc")]
+pub mod ledger;
 #[cfg(feature = "mcp")]
 pub mod mcp;
 pub mod memory;

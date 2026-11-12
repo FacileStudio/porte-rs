@@ -27,6 +27,14 @@ impl Store {
         Err(StoreError::other(format!("porte/pg: identity {subject} moved between accounts while erasing")))
     }
 
+    /// Whether an account holds the `(provider, subject)` identity, matching the provider exactly
+    /// as [`Store::erase_identity`] does. Pass the store to `directory::Deletions::with_holds`,
+    /// so a person whose account came back after the erasure is erased again.
+    pub async fn holds_identity(&self, provider: &str, subject: &str) -> Result<bool, StoreError> {
+        let mut conn = self.pool.acquire().await.map_err(StoreError::other)?;
+        owner(&mut conn, provider, subject).await.map(|owner| owner.is_some())
+    }
+
     async fn erase_locked(
         &self,
         tx: &mut PgConnection,
@@ -67,6 +75,16 @@ async fn owner(conn: &mut PgConnection, provider: &str, subject: &str) -> Result
 impl crate::directory::IdentityEraser for Store {
     async fn erase_identity(&self, provider: &str, subject: &str) -> Result<(), crate::directory::DirectoryError> {
         Store::erase_identity(self, provider, subject)
+            .await
+            .map_err(|error| crate::directory::DirectoryError::Failed(error.to_string()))
+    }
+}
+
+#[cfg(feature = "directory")]
+#[async_trait::async_trait]
+impl crate::directory::IdentityHolder for Store {
+    async fn holds_identity(&self, provider: &str, subject: &str) -> Result<bool, crate::directory::DirectoryError> {
+        Store::holds_identity(self, provider, subject)
             .await
             .map_err(|error| crate::directory::DirectoryError::Failed(error.to_string()))
     }

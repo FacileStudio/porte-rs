@@ -52,6 +52,7 @@ done
 | `tests/origin.rs` | `Manager::check_origin` |
 | `tests/oidc_flow.rs`, `tests/oidc_cli.rs`, `tests/oidc_claims.rs`, `tests/oidc_profile.rs`, `tests/oidc_provision.rs` | The whole kit against an in-process fake provider (`tests/common/provider.rs`) that enforces PKCE, the redirect URI and client authentication |
 | `tests/directory_sync.rs`, `tests/directory_deletions.rs`, `tests/directory_push.rs` | The syncer (with paused time), the deletion poll and the signed push |
+| `tests/directory_erased.rs`, `tests/oidc_erased.rs`, `tests/pg_erased.rs` | The erased-subject fix: a re-created account erased again on push and poll, `Deletions::erased`, sign-in, provisioning and profile sync refused, and the whole loop against Postgres |
 | `tests/spaces.rs`, `tests/spaces_guard.rs` | The conformance suite against `Memory` and against an unscoped store that must fail it |
 | `tests/mcpauth.rs`, `tests/mcpauth_require.rs`, `tests/mcpauth_provision.rs` | The MCP verifier, the challenges, the metadata, provisioning |
 | `tests/registre.rs` | Boots a kit against a live Registre; skipped unless `REGISTRE_ISSUER_URL` is set |

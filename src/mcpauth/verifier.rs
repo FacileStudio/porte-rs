@@ -105,6 +105,7 @@ impl Verifier {
         match kit.provision_bearer(claims).await {
             Ok(identity) => Ok(identity),
             Err(ProvisionError::Refused(reason)) => Err(refuse(&reason)),
+            Err(error @ ProvisionError::Erased) => Err(refuse(&error.to_string())),
             Err(ProvisionError::Store(reason)) => Err(unavailable(&reason)),
         }
     }
