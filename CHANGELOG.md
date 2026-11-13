@@ -6,6 +6,20 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-13
+
+No code change: consumers need not bump.
+
+### Added
+
+- `scripts/check.sh` refuses a `path =` or `file://` dependency in `Cargo.toml` or `Cargo.lock`.
+- `douane.yml` permits CVE-2026-119375 on `libsqlite3-sys` until 2027-05-13. The crate is in
+  the lockfile through `sqlx-macros-core`'s weak optional features and is never compiled.
+
+### Documentation
+
+- 0.4.0 and 0.5.0 are marked unbuildable from git: both depend on tronc through a local path.
+
 ## [0.7.0] - 2026-11-12
 
 The erased-subject fix of Go porte v0.19.0 and `directory` v0.5.0. Opt-in: an app that only
@@ -95,6 +109,9 @@ route, cookie or schema change, and no conformance vector changed in Go.
 
 ## [0.5.0] - 2026-11-10
 
+**Unbuildable from git:** this tag depends on tronc through a local `file://` git source,
+so it builds only on the machine that cut it. Use 0.5.1 or later.
+
 ### Changed
 
 - **tronc v0.3.0.** porte-rs now depends on the tronc tag the apps use for MCP, so an app has
@@ -116,6 +133,9 @@ route, cookie or schema change, and no conformance vector changed in Go.
   space that disappeared to the trash and never hard-deletes it.
 
 ## [0.4.0] - 2026-11-10
+
+**Unbuildable from git:** this tag depends on tronc through a local `file://` git source,
+so it builds only on the machine that cut it. Use 0.5.1 or later.
 
 ### Added
 

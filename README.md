@@ -45,7 +45,7 @@ Pin a tag and pick features. Nothing is on by default.
 
 ```toml
 [dependencies]
-porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.7.0", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
+porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.7.1", features = ["pg", "oidc", "directory", "spaces", "mcp"] }
 ```
 
 | Feature | Modules |
