@@ -5,9 +5,10 @@ mod common;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-use common::exchange::{CLIENT_ID, Identities, SECRET, bulle, setup};
-use porte::Identity;
+use common::exchange::{CLIENT_ID, ISSUER, Identities, SECRET, bulle, setup};
 use porte::exchange::{Config, ExchangeError, Exchanger, Target};
+use porte::{Identity, StoredIdentity, TokenSet};
+use tronc::bulle::TokenSource;
 
 #[tokio::test]
 async fn a_dead_refresh_token_is_reconnect() {
@@ -47,6 +48,36 @@ async fn call_retries_once_on_401() {
     let always = |_: String| async { Ok::<_, ExchangeError>(http::Response::builder().status(401).body(()).unwrap()) };
     assert_eq!(f.ex.call(7, &bulle(), always).await.unwrap().status(), 401);
     assert_eq!(f.ex.source(bulle()).token(&Identity::default()).await, Err(ExchangeError::NoUser));
+}
+
+#[tokio::test]
+async fn a_bound_source_is_the_bulle_token_source() {
+    let f = setup();
+    let source = f.ex.bound(7, bulle());
+    let first = TokenSource::token(&source).await.unwrap();
+    assert_eq!(TokenSource::token(&source).await.unwrap(), first, "the bound source did not reuse the cached token");
+    assert!(TokenSource::forget(&source).is_some(), "a bound source never asks the client to retry a 401");
+    assert_ne!(TokenSource::token(&source).await.unwrap(), first, "forget kept the token Bulle refused");
+    let nobody = TokenSource::token(&f.ex.bound(0, bulle())).await.unwrap_err();
+    assert_eq!(nobody.code.status().as_u16(), 401);
+    let no_grant = TokenSource::token(&f.ex.bound(99, bulle())).await.unwrap_err();
+    assert_eq!(no_grant.code.status().as_u16(), 412);
+}
+
+#[tokio::test]
+async fn bound_sources_keep_two_users_apart() {
+    let f = setup();
+    let tokens = TokenSet { refresh_token: f.registre.seed(), ..TokenSet::default() };
+    let row =
+        StoredIdentity { user_id: 8, provider: ISSUER.into(), subject: "sub-8".into(), tokens, ..Default::default() };
+    f.ids.rows.lock().unwrap().insert(8, row);
+    let (seven, eight) = (f.ex.bound(7, bulle()), f.ex.bound(8, bulle()));
+    let (first_seven, first_eight) =
+        (TokenSource::token(&seven).await.unwrap(), TokenSource::token(&eight).await.unwrap());
+    assert_ne!(first_seven, first_eight, "two users got the same Bulle token");
+    assert!(TokenSource::forget(&seven).is_some());
+    assert_ne!(TokenSource::token(&seven).await.unwrap(), first_seven, "forget kept user 7's token");
+    assert_eq!(TokenSource::token(&eight).await.unwrap(), first_eight, "forgetting user 7 dropped user 8's token");
 }
 
 #[test]

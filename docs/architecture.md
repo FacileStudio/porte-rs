@@ -1,7 +1,7 @@
 # porte-rs — Architecture
 
 How the crate is put together, what a request goes through, and where the Rust port differs
-from Go `porte` v0.16.1.
+from Go `porte` v0.20.1.
 
 ## Topology
 

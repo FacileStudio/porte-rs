@@ -34,6 +34,7 @@ pub struct Registre {
     pub in_flight: AtomicI32,
     pub overlapping: AtomicBool,
     pub down: AtomicBool,
+    pub exchange_answer: Mutex<Option<(u16, String)>>,
 }
 
 pub fn reply(status: u16, body: serde_json::Value) -> HttpResponse {
@@ -66,6 +67,9 @@ impl Registre {
 
     pub fn exchange(&self, form: &HashMap<String, String>) -> HttpResponse {
         self.exchanges.fetch_add(1, Ordering::SeqCst);
+        if let Some((status, body)) = self.exchange_answer.lock().unwrap().clone() {
+            return http::Response::builder().status(status).body(body.into_bytes()).unwrap();
+        }
         let mut ledger = self.ledger.lock().unwrap();
         if !ledger.access.contains(&form["subject_token"]) {
             return reply(400, serde_json::json!({"error": "invalid_grant"}));

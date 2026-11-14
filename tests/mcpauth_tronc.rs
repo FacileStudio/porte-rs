@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 
 use common::mcp::{APP_AUDIENCE, Broken, known, mint, verifier};
 use serde_json::json;
-use tronc::mcp::{EXTRA_ACTOR, EXTRA_CLIENT_ID, TokenInfo, Verifier, VerifyError};
+use tronc::mcp::{EXTRA_ACTOR, EXTRA_CLIENT_ID, EXTRA_SUBJECT, TokenInfo, Verifier, VerifyError};
 
 async fn through_tronc(verifier: &dyn Verifier, token: &str) -> Result<TokenInfo, VerifyError> {
     let (parts, ()) = http::Request::new(()).into_parts();
@@ -15,7 +15,7 @@ async fn through_tronc(verifier: &dyn Verifier, token: &str) -> Result<TokenInfo
 }
 
 #[tokio::test]
-async fn tronc_sees_the_account_scopes_expiry_client_and_actor() {
+async fn tronc_sees_the_account_scopes_expiry_client_actor_and_subject() {
     let exp = common::sign::now() + 600;
     let token = mint(json!({ "aud": APP_AUDIENCE, "client_id": "bulle", "act": { "sub": "bulle" }, "exp": exp }));
     let info = through_tronc(&verifier(known()).await, &token).await.unwrap();
@@ -24,7 +24,8 @@ async fn tronc_sees_the_account_scopes_expiry_client_and_actor() {
     assert_eq!(info.expires_at, Some(SystemTime::UNIX_EPOCH + Duration::from_secs(exp.unsigned_abs())));
     assert_eq!(info.extra.get(EXTRA_CLIENT_ID).map(String::as_str), Some("bulle"));
     assert_eq!(info.extra.get(EXTRA_ACTOR).map(String::as_str), Some("bulle"));
-    assert_eq!(info.extra.len(), 2);
+    assert_eq!(info.extra.get(EXTRA_SUBJECT).map(String::as_str), Some(common::mcp::SUBJECT));
+    assert_eq!(info.extra.len(), 3);
 }
 
 #[tokio::test]

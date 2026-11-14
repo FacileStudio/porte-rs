@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::Router;
-use porte::Config;
+use porte::http_client::HttpClient;
 use porte::oidc::{ConfigExtra, Deps, Kit};
 use porte::session::{self, Manager};
+use porte::{Config, IdentityStore, UserStore};
 use serde_json::Value;
 
 use super::idp::{ISSUER, fixture_client};
@@ -46,6 +47,10 @@ pub fn oidc_env(extra: &[(&str, &str)]) -> Value {
 }
 
 pub async fn app(env: &Value, extra: Option<ConfigExtra>) -> App {
+    app_over(env, extra, fixture_client()).await
+}
+
+pub async fn app_over(env: &Value, extra: Option<ConfigExtra>, http: HttpClient) -> App {
     let cfg = config_from(env);
     let sessions = Arc::new(Sessions::default());
     let manager = Manager::new(&cfg, session::Deps { sessions: sessions.clone(), now: None });
@@ -55,9 +60,23 @@ pub async fn app(env: &Value, extra: Option<ConfigExtra>) -> App {
         codes: Arc::new(Codes::default()),
         sessions: manager.clone(),
         config_extra: extra,
-        http: Some(fixture_client()),
+        http: Some(http),
         now: None,
     };
     let kit = Kit::new(&cfg, deps).await.unwrap();
     App { router: manager.routes().merge(kit.routes()), manager, sessions }
+}
+
+pub async fn accounts(cfg: &Config, identities: Arc<dyn IdentityStore>, users: Arc<dyn UserStore>) -> Kit {
+    let manager = Manager::new(cfg, session::Deps { sessions: Arc::new(Sessions::default()), now: None });
+    let deps = Deps {
+        users,
+        identities,
+        codes: Arc::new(Codes::default()),
+        sessions: manager,
+        config_extra: None,
+        http: Some(fixture_client()),
+        now: None,
+    };
+    Kit::new(cfg, deps).await.unwrap()
 }

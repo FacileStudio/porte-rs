@@ -24,7 +24,7 @@ impl Config { from_vars(&tronc::env::Vars), enabled, claims_enabled, https, idle
 pub struct ConfigError(pub String);
 
 pub struct Identity { user_id: i64, subject /* bearer only, empty on a cookie */, email, email_verified: bool, name, roles: Vec<String>,
-    scopes: Vec<String>, actor: String, session_id: i64, roles_synced_at: Option<OffsetDateTime> }
+    scopes: Vec<String>, actor: String, session_id: i64, browser_session: bool, roles_synced_at: Option<OffsetDateTime> }
 impl Identity { has_role(&str), has_any_role(&[&str]) }
 impl FromRequestParts, OptionalFromRequestParts for Identity   // 401 "missing auth"
 pub struct Claims { provider, subject, email, email_verified, name, preferred_username, given_name,
@@ -46,6 +46,8 @@ impl SubjectErased { pub fn caused(&tronc::Error) -> bool }  // Go errors.Is(err
 
 ```rust
 pub fn new_token() -> Result<String, getrandom::Error>;  // 32 random bytes, base64url, 43 chars
+pub const BROWSER_TOKEN_PREFIX: &str = "b~";
+pub fn new_browser_token() -> Result<String, getrandom::Error>;  // "b~" + new_token(), 45 chars, browser logins only
 pub fn hash_token(token: &str) -> String;                 // lowercase hex SHA-256
 pub fn secure_compare(a: &str, b: &str) -> bool;          // constant time
 ```
@@ -82,7 +84,8 @@ impl Manager {
     pub fn with_claims(&self, Arc<dyn ClaimsSource>); pub fn with_jwt(&self, Arc<dyn JwtVerifier>);
     pub fn config(&self) -> &Config; pub fn store(&self) -> &Arc<dyn SessionStore>;
     pub async fn issue(&self, user_id, label) -> Result<(String, Session), tronc::Error>;
-    pub async fn issue_for(&self, caller: Option<&Identity>, template: Session) -> Result<(String, Session), tronc::Error>;
+    pub async fn issue_for(&self, caller: Option<&Identity>, template: Session) -> Result<(String, Session), tronc::Error>;  // plain token
+    pub async fn issue_cookie_for(&self, req: &impl RequestView, template: Session) -> Result<(String, Session, HeaderValue), tronc::Error>;  // b~ token + cookie
     pub async fn end(&self, &Identity) -> Result<(), tronc::Error>;
     pub async fn list / revoke / revoke_user / revoke_logins / sweep;
     pub async fn authenticate(&self, req: &impl RequestView) -> Authentication;
@@ -302,6 +305,8 @@ impl Exchanger { pub fn new(Config) -> Result<Exchanger, ConfigError>;
     pub fn forget(&self, user_id, &Target); pub fn forget_user(&self, user_id);
     pub fn source(&self, Target) -> Source }
 pub struct Source;  // Clone
+impl Exchanger { pub fn bound(&self, user_id: i64, Target) -> Bound }
+pub struct Bound;   // Clone; impl tronc::bulle::TokenSource (forget drops the cached token)
 impl Source { pub async fn token(&self, &Identity) -> Result<String, ExchangeError>;
     pub async fn call(&self, &Identity, request) -> Result<http::Response<B>, E>;
     pub fn forget(&self, &Identity); pub fn target(&self) -> &Target }
@@ -364,12 +369,14 @@ pub struct Verifier;
 impl Verifier { pub async fn new(cfg: Config) -> Result<Verifier, ConfigError>;
     pub async fn verify(&self, raw: &str) -> Result<TokenInfo, VerifyError> }
 impl tronc::mcp::Verifier for Verifier;                  // Arc<Verifier> goes straight into tronc::mcp::Options
-impl From<TokenInfo> for tronc::mcp::TokenInfo;          // extra: EXTRA_CLIENT_ID, EXTRA_ACTOR; expires_at: exp
+impl From<TokenInfo> for tronc::mcp::TokenInfo;          // extra: EXTRA_CLIENT_ID, EXTRA_ACTOR, EXTRA_SUBJECT; expires_at: exp
 impl From<VerifyError> for tronc::mcp::VerifyError;      // InvalidToken → Invalid, Unavailable → Unavailable
 pub struct TokenInfo { user_id: String, scopes, expiration: OffsetDateTime, client_id, actor, subject }  // extractor
 pub const BULLE_CLIENT_ID: &str = "bulle";
 pub fn third_party(info: Option<&TokenInfo>) -> bool;   // false only for act + client_id "bulle"
 pub fn identity(info: Option<&TokenInfo>) -> Option<Identity>;
+pub fn require_own_session(req: &impl RequestView) -> Result<Identity, tronc::Error>;  // 401 missing auth, else one 403 tronc::mcp::delegated()
+pub async fn account_exists<T>(info: Option<&tronc::mcp::TokenInfo>, lookup: impl FnOnce(i64) -> Future<Result<T, E>>) -> Result<T, NoAccount>;
 pub struct Scopes { read, write }  impl Scopes { list() }
 pub fn scopes_for(prefix: &str) -> Scopes; pub fn has_scope(info: Option<&TokenInfo>, scope: &str) -> bool;
 pub struct RequireOptions { resource_metadata_url, scopes: Vec<String>, allow_missing_expiration, clock_skew }

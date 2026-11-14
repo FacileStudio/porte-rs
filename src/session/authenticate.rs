@@ -7,7 +7,7 @@ use tronc::Error;
 use super::Manager;
 use super::request::RequestView;
 use super::rules::{has_csrf_header, ignore_missing, jwt_shaped, mutating};
-use crate::{CSRF_HEADER_NAME, Identity, SESSION_COOKIE_NAME, Session, StoreError, hash_token};
+use crate::{BROWSER_TOKEN_PREFIX, CSRF_HEADER_NAME, Identity, SESSION_COOKIE_NAME, Session, StoreError, hash_token};
 
 const TOUCH_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -42,7 +42,7 @@ impl Manager {
         }
         if let Some(verifier) = self.jwt().filter(|_| !from_cookie && jwt_shaped(&token)) {
             let identity = verifier.verify_jwt(&token).await.map_err(|_| Error::unauthorized("invalid token"))?;
-            return self.gate_scope(req, identity);
+            return self.gate_scope(req, Identity { browser_session: false, ..identity });
         }
         let clear = |cookies: &mut Vec<HeaderValue>| {
             if from_cookie {
@@ -64,15 +64,17 @@ impl Manager {
             self.drop_dead(&hash).await;
             return Err(Error::unauthorized("session expired"));
         }
-        Ok(self.live(&stored, &hash, now).await)
+        let browser_session = browser_session(from_cookie, &token, &stored);
+        Ok(self.live(&stored, &hash, now, browser_session).await)
     }
 
-    async fn live(&self, stored: &Session, hash: &str, now: OffsetDateTime) -> Identity {
+    async fn live(&self, stored: &Session, hash: &str, now: OffsetDateTime, browser_session: bool) -> Identity {
         let due = stored.last_used_at.is_none_or(|last| now - last >= TOUCH_INTERVAL);
         if due && let Err(error) = self.store().touch(hash, now).await {
             tracing::warn!(%error, "porte: failed to record session use");
         }
-        let mut identity = Identity { user_id: stored.user_id, session_id: stored.id, ..Identity::default() };
+        let mut identity =
+            Identity { user_id: stored.user_id, session_id: stored.id, browser_session, ..Identity::default() };
         if let Some(claims) = self.claims() {
             claims.attach(&mut identity).await;
         }
@@ -113,4 +115,8 @@ impl Manager {
             identity.scopes.iter().any(|scope| *scope == write || (!mutating(req.view().method) && *scope == read));
         if allowed { Ok(identity) } else { Err(Error::forbidden("insufficient scope")) }
     }
+}
+
+fn browser_session(from_cookie: bool, token: &str, stored: &Session) -> bool {
+    from_cookie && !stored.is_api_token() && token.starts_with(BROWSER_TOKEN_PREFIX)
 }

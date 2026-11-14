@@ -16,7 +16,7 @@ async fn a_browser_login_ends_in_a_session_the_middleware_accepts() {
     let callback = flow.login(&mut browser, "").await;
     assert_eq!((callback.status, callback.header("location").as_deref()), (302, Some("https://app.test/")));
     let cookies = callback.set_cookies().unwrap();
-    assert!(cookies.iter().any(|c| c.starts_with("__Host-session=")
+    assert!(cookies.iter().any(|c| c.starts_with("__Host-session=b~")
         && c.ends_with("; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax")));
     assert!(cookies.iter().any(|c| c.starts_with("__Host-oidc_state=; Path=/; Max-Age=0")));
     assert_eq!(flow.sessions.count(7), 1);

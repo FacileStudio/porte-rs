@@ -4,28 +4,15 @@ mod common;
 
 use std::sync::Arc;
 
-use common::idp::fixture_client;
 use common::mcp::{config, mint};
-use common::memory::Sessions;
-use common::stores::{Codes, Identities, Users};
+use common::stores::{Identities, Users};
 use porte::mcpauth::{Verifier, VerifyError};
-use porte::oidc::{Deps, Kit};
-use porte::session::{self, Manager};
+use porte::oidc::Kit;
 use serde_json::json;
 
 async fn kit(identities: Arc<Identities>, users: Arc<Users>) -> Kit {
     let cfg = common::kit::config_from(&common::kit::oidc_env(&[]));
-    let manager = Manager::new(&cfg, session::Deps { sessions: Arc::new(Sessions::default()), now: None });
-    let deps = Deps {
-        users,
-        identities,
-        codes: Arc::new(Codes::default()),
-        sessions: manager,
-        config_extra: None,
-        http: Some(fixture_client()),
-        now: None,
-    };
-    Kit::new(&cfg, deps).await.unwrap()
+    common::kit::accounts(&cfg, identities, users).await
 }
 
 async fn provisioning() -> (Verifier, Arc<Users>) {

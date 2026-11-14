@@ -29,6 +29,11 @@ pub struct Identity {
     pub actor: String,
     /// The session row this request authenticated against. Zero on the bearer-JWT path.
     pub session_id: i64,
+    /// Whether the credential is a browser login: the session cookie, on a row that is not a
+    /// named API token, carrying a token [`crate::new_browser_token`] minted. False on every
+    /// bearer, on a CLI, device or mobile token sent as a cookie, and on a cookie issued before
+    /// porte-rs 0.8.0. Only [`crate::session::Manager::authenticate`] sets it.
+    pub browser_session: bool,
     /// When `roles` were last refreshed.
     pub roles_synced_at: Option<OffsetDateTime>,
 }

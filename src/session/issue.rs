@@ -1,8 +1,10 @@
+use http::HeaderValue;
 use tronc::Error;
 
 use super::Manager;
+use super::request::RequestView;
 use super::rules::ignore_missing;
-use crate::{Identity, Session, StoreError, hash_token, new_token};
+use crate::{BROWSER_TOKEN_PREFIX, Identity, Session, StoreError, hash_token, new_browser_token, new_token};
 
 impl Manager {
     /// Mints a session, stores only its hash and returns the plaintext once. A non-empty
@@ -14,8 +16,34 @@ impl Manager {
     /// Mints a session from a template. A `provider` or `issued_by` binding makes the insert
     /// conditional on that identity or session still existing. A named token minted by a caller
     /// for their own account is bound to the caller's session or subject.
+    ///
+    /// It mints a plain token, redrawn if it ever starts with [`crate::BROWSER_TOKEN_PREFIX`]:
+    /// the CLI code exchange, the device exchange and named API tokens use it, so their sessions
+    /// are never [`Identity::browser_session`].
     pub async fn issue_for(&self, caller: Option<&Identity>, template: Session) -> Result<(String, Session), Error> {
-        let token = new_token().map_err(|error| Error::internal("failed to issue a session", error))?;
+        self.mint(caller, template, plain_token).await
+    }
+
+    /// Go `IssueCookieFor`: [`Self::issue_for`] for a browser login, plus the session cookie to
+    /// set. The token starts with [`crate::BROWSER_TOKEN_PREFIX`], so the cookie authenticates as
+    /// [`Identity::browser_session`]. Only a sign-in the person made in this browser calls it.
+    pub async fn issue_cookie_for(
+        &self,
+        req: &(impl RequestView + Sync + ?Sized),
+        template: Session,
+    ) -> Result<(String, Session, HeaderValue), Error> {
+        let (token, session) = self.mint(None, template, new_browser_token).await?;
+        let cookie = self.session_cookie(req, &token);
+        Ok((token, session, cookie))
+    }
+
+    async fn mint(
+        &self,
+        caller: Option<&Identity>,
+        template: Session,
+        new: fn() -> Result<String, getrandom::Error>,
+    ) -> Result<(String, Session), Error> {
+        let token = new().map_err(|error| Error::internal("failed to issue a session", error))?;
         let mut session = bind_to_caller(&self.config().issuer, caller, template);
         let now = self.now();
         session.token_hash = hash_token(&token);
@@ -37,6 +65,15 @@ impl Manager {
             .await
             .or_else(ignore_missing)
             .map_err(|error| Error::internal("failed to end the session", error))
+    }
+}
+
+fn plain_token() -> Result<String, getrandom::Error> {
+    loop {
+        let token = new_token()?;
+        if !token.starts_with(BROWSER_TOKEN_PREFIX) {
+            return Ok(token);
+        }
     }
 }
 

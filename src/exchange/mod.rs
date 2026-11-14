@@ -13,7 +13,10 @@
 //! Exchanged tokens are cached in memory until their expiry minus a margin. A downstream 401
 //! forgets the token and retries once ([`Exchanger::call`]). A refresh token Registre no longer
 //! accepts is [`ExchangeError::Reconnect`]: the user signs in again.
+//!
+//! [`Exchanger::bound`] is the `tronc::bulle::TokenSource` for one user and one target.
 
+mod bound;
 mod call;
 mod config;
 mod errors;
@@ -27,6 +30,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+pub use bound::Bound;
 pub use call::Source;
 pub use config::{Config, Target};
 pub use errors::ExchangeError;
