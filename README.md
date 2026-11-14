@@ -8,7 +8,7 @@ sessions, spaces and MCP auth for the suite apps written in Rust, ported from Go
 
 Feuilles and Docs have Rust backends. A browser, a CLI or Registre must not be able to tell
 them from a Go app, so this crate serves the same routes, cookie, tokens and tables, pinned by
-test vectors generated from Go `porte` v0.20.0.
+test vectors generated from Go `porte` v0.20.1.
 
 ## What it does
 

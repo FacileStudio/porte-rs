@@ -8,13 +8,16 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [0.8.0] - 2026-11-14
 
-Catches up with Go porte v0.20.0 (`mcpauth` v0.3.0, `directory` v0.5.0) and tronc-rs v0.5.0,
+Catches up with Go porte v0.20.1 (`mcpauth` v0.3.1, `directory` v0.5.0) and tronc-rs v0.5.0,
 so Toile and Docs can drop their own confirm-page identity check and Bulle token source. No
 migration, no route, CSRF or schema change.
 
-**Upgrade note.** A browser login's session token now starts with `b-`. A cookie minted before
-0.8.0 keeps signing in for everything, but `mcpauth::require_own_session` refuses it (403): each
-person signs in once in the browser before they can confirm a pending MCP action.
+**Upgrade note.** A browser login's session token now starts with `BROWSER_TOKEN_PREFIX`
+(`b~`). A cookie minted before 0.8.0 keeps signing in for everything, but
+`mcpauth::require_own_session` refuses it (403): each person signs in once in the browser before
+they can confirm a pending MCP action. An app's e2e or seed script that writes a session row and
+sets it as the cookie must prefix that token with `BROWSER_TOKEN_PREFIX` (and store the hash of
+the prefixed token), or its confirm-page tests get 403.
 
 ### Breaking
 
@@ -39,11 +42,14 @@ person signs in once in the browser before they can confirm a pending MCP action
 - `Identity::browser_session`, set by `session::Manager::authenticate` when the credential came
   in the session cookie, the row is not a named API token, and the token starts with
   `BROWSER_TOKEN_PREFIX`. The bearer-JWT path always clears it.
-- `BROWSER_TOKEN_PREFIX` (`b-`), `new_browser_token()` and
+- `BROWSER_TOKEN_PREFIX` (`b~`), `new_browser_token()` and
   `session::Manager::issue_cookie_for(request, template)` (Go `IssueCookieFor`), which mints a
   browser token and returns its cookie. The OIDC browser callback uses it; the CLI code exchange,
   the device exchange and `issue`/`issue_for` keep plain tokens. The stored hash covers the
-  prefix, so adding `b-` to a CLI token makes it fail its lookup (401).
+  prefix, so adding `b~` to a CLI token makes it fail its lookup (401). `~` is outside the
+  base64url alphabet, so no plain token can carry the mark by chance (Go v0.20.0's `b-` matched
+  one plain token in 4096, found in this release's review and fixed in Go v0.20.1), and
+  `issue`/`issue_for` still redraw any token that starts with the prefix. A `b-` token is plain.
 - `mcpauth::account_exists(info, lookup)` and `NoAccount`, Go `AccountExists`: reads the account
   a verified MCP token speaks for (`call.parts.extensions.get::<tronc::mcp::TokenInfo>()`), so a
   tool never runs for an account erased after the token was minted. A missing info, an id that
@@ -55,8 +61,8 @@ person signs in once in the browser before they can confirm a pending MCP action
   (`modules/assistant/mod.rs`) each copied. A zero user id is `ExchangeError::NoUser` (401).
 - The MCP verifier puts `subject` in tronc's `TokenInfo::extra` under `EXTRA_SUBJECT`, as Go
   `mcpauth.ExtraSubject`.
-- Conformance runners for the Go v0.20.0 vectors `exchange_errors`, `mcpauth_tokens`,
-  `provision_bearer`, `directory_erased`, the `new_browser_token shape` token case and the two
+- Conformance runners for the Go v0.20.1 vectors `exchange_errors`, `mcpauth_tokens`,
+  `provision_bearer`, `directory_erased`, the `new_browser_token shape` and `browser_session` token cases and the two
   back-channel cases where the provider keys are unreachable or answer an error (503
   `could not fetch the provider keys`, which porte-rs already answered since 0.5.2).
 

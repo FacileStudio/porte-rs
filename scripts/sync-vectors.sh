@@ -2,8 +2,8 @@
 #
 # Copies Go porte's conformance vectors into tests/vectors and records the tag they came from.
 #
-#   sh scripts/sync-vectors.sh v0.20.0                        clone FacileStudio/porte at a tag
-#   sh scripts/sync-vectors.sh ~/Code/Facile/porte v0.20.0    read a local checkout at that tag
+#   sh scripts/sync-vectors.sh v0.20.1                        clone FacileStudio/porte at a tag
+#   sh scripts/sync-vectors.sh ~/Code/Facile/porte v0.20.1    read a local checkout at that tag
 #
 # It copies conformance/vectors/*.json and conformance/testdata/*, and writes the tag to
 # tests/vectors/SOURCE. Each file keeps its own "source": Go stamps a subject with the release

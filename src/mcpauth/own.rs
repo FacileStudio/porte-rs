@@ -41,6 +41,9 @@ pub fn require_own_session(req: &(impl RequestView + ?Sized)) -> Result<Identity
 /// as Go `mcpauth.AccountExists`. `info` is the `tronc::mcp::TokenInfo` the verifier put in the
 /// request extensions (`call.parts.extensions.get()`). It answers [`NoAccount`] when `info` is
 /// missing, names no account id, or `lookup` fails.
+///
+/// The lookup must fail (`Err`) for a missing account: an `Ok(None)` counts as present. Wire a
+/// `fetch_one`, or turn a `fetch_optional`'s `None` into an error, never a bare `fetch_optional`.
 pub async fn account_exists<T, E, F, Fut>(info: Option<&tronc::mcp::TokenInfo>, lookup: F) -> Result<T, NoAccount>
 where
     F: FnOnce(i64) -> Fut,

@@ -15,10 +15,12 @@ pub fn new_token() -> Result<String, getrandom::Error> {
     Ok(URL_SAFE_NO_PAD.encode(buffer))
 }
 
-/// Starts every session token minted for a browser login, as Go `porte.BrowserTokenPrefix`. It
-/// is inside the base64url alphabet, so the token stays a valid cookie value, and the stored hash
-/// covers it, so adding it to a token minted for a CLI makes that token fail its lookup.
-pub const BROWSER_TOKEN_PREFIX: &str = "b-";
+/// Starts every session token minted for a browser login, as Go `porte.BrowserTokenPrefix`. `~`
+/// is outside the base64url alphabet, so no [`new_token`] can start with it by chance, and it is
+/// an RFC 6265 cookie-octet, so the token stays a valid unquoted cookie value. The stored hash
+/// covers the prefix, so adding it to a token minted for a CLI makes that token fail its lookup.
+/// Go porte v0.20.0 used `b-`, which one plain token in 4096 starts with; such a token is plain.
+pub const BROWSER_TOKEN_PREFIX: &str = "b~";
 
 /// [`new_token`] behind [`BROWSER_TOKEN_PREFIX`] (45 characters), as Go `porte.NewBrowserToken`.
 /// Only a browser login ([`crate::session::Manager::issue_cookie_for`]) mints one; a session

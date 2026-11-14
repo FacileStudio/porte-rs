@@ -99,8 +99,8 @@ release in `source` (`porte`, `porte/mcpauth`, `porte/directory`), and a test fa
 names another than `tests/common/vectors.rs` expects.
 
 ```sh
-sh scripts/sync-vectors.sh v0.20.0                       # clones FacileStudio/porte at the tag
-sh scripts/sync-vectors.sh ~/Code/Facile/porte v0.20.0   # or reads a local checkout with git show
+sh scripts/sync-vectors.sh v0.20.1                       # clones FacileStudio/porte at the tag
+sh scripts/sync-vectors.sh ~/Code/Facile/porte v0.20.1   # or reads a local checkout with git show
 ```
 
 CI re-runs the first form against `tests/vectors/SOURCE` and fails on any difference, new files

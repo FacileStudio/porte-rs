@@ -1,4 +1,4 @@
-//! `porte`, the auth kit for Facile Suite Rust apps: a port of Go `porte` v0.20.0.
+//! `porte`, the auth kit for Facile Suite Rust apps: a port of Go `porte` v0.20.1.
 //!
 //! It makes a Rust app a Registre client with the routes, cookie, tokens, tables and space
 //! model of a Go app. Each part sits behind a feature: `pg`, `oidc`, `directory`, `spaces`,

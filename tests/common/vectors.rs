@@ -2,7 +2,7 @@ use serde_json::Value;
 
 const ROOT: &str = "github.com/FacileStudio/porte@";
 const DIRECTORY_SOURCE: &str = "github.com/FacileStudio/porte/directory@v0.5.0";
-const MCPAUTH_SOURCE: &str = "github.com/FacileStudio/porte/mcpauth@v0.3.0";
+const MCPAUTH_SOURCE: &str = "github.com/FacileStudio/porte/mcpauth@v0.3.1";
 
 pub fn load(subject: &str) -> Value {
     let path = format!("{}/tests/vectors/{subject}.json", env!("CARGO_MANIFEST_DIR"));

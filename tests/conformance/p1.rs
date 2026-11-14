@@ -7,7 +7,8 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use http::Request;
 use porte::session::{Deps, Manager};
 use porte::{
-    BROWSER_TOKEN_PREFIX, Config, SESSION_COOKIE_NAME, hash_token, new_browser_token, new_token, secure_compare,
+    BROWSER_TOKEN_PREFIX, Config, SESSION_COOKIE_NAME, Session, SessionStore, hash_token, new_browser_token, new_token,
+    secure_compare,
 };
 use serde_json::{Value, json};
 
@@ -16,11 +17,11 @@ use crate::common::vectors::{cases, load, source_file};
 
 #[test]
 fn vectors_source_is_pinned() {
-    assert_eq!(source_file(), "v0.20.0\n");
+    assert_eq!(source_file(), "v0.20.1\n");
 }
 
-#[test]
-fn token_vector() {
+#[tokio::test]
+async fn token_vector() {
     for case in cases(&load("token")) {
         let (input, want) = (&case["input"], &case["want"]);
         let text = |key: &str| input[key].as_str().unwrap_or_default().to_owned();
@@ -29,6 +30,7 @@ fn token_vector() {
             "compare" => json!({ "equal": secure_compare(&text("a"), &text("b")) }),
             "new_token" => token_shape(),
             "new_browser_token" => browser_token_shape(),
+            "browser_session" => browser_session(input).await,
             kind => panic!("{}: no runner for token kind {kind:?}", case["name"]),
         };
         assert_eq!(&got, want, "{}", case["name"]);
@@ -44,11 +46,32 @@ fn token_shape() -> Value {
 fn browser_token_shape() -> Value {
     let token = new_browser_token().unwrap();
     let rest = token.strip_prefix(BROWSER_TOKEN_PREFIX).expect("a browser token starts with the prefix");
-    assert!(token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
+    assert!(rest.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
     json!({
-        "alphabet": "^[A-Za-z0-9_-]+$", "decoded_bytes_after_prefix": URL_SAFE_NO_PAD.decode(rest).unwrap().len(),
+        "alphabet_after_prefix": "^[A-Za-z0-9_-]+$", "decoded_bytes_after_prefix": URL_SAFE_NO_PAD.decode(rest).unwrap().len(),
         "padding": token.contains('='), "prefix": BROWSER_TOKEN_PREFIX, "token_length": token.len(),
     })
+}
+
+async fn browser_session(input: &Value) -> Value {
+    let sessions = Arc::new(Sessions::default());
+    let token = input["token"].as_str().unwrap();
+    let row = Session {
+        user_id: 7,
+        label: input["label"].as_str().unwrap().to_owned(),
+        token_hash: hash_token(token),
+        expires_at: Some(time::OffsetDateTime::now_utc() + time::Duration::hours(1)),
+        ..Session::default()
+    };
+    sessions.create(row).await.unwrap();
+    let manager = Manager::new(&Config::default(), Deps { sessions, now: None });
+    let header = match input["transport"].as_str().unwrap() {
+        "cookie" => ("cookie", format!("{SESSION_COOKIE_NAME}={token}")),
+        _ => ("authorization", format!("Bearer {token}")),
+    };
+    let request = Request::get("http://app.test/").header(header.0, header.1).body(()).unwrap();
+    let identity = manager.authenticate(&request).await.result.expect("the vector's token authenticates");
+    json!({ "browser_session": identity.browser_session })
 }
 
 #[tokio::test]

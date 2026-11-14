@@ -46,8 +46,8 @@ impl SubjectErased { pub fn caused(&tronc::Error) -> bool }  // Go errors.Is(err
 
 ```rust
 pub fn new_token() -> Result<String, getrandom::Error>;  // 32 random bytes, base64url, 43 chars
-pub const BROWSER_TOKEN_PREFIX: &str = "b-";
-pub fn new_browser_token() -> Result<String, getrandom::Error>;  // "b-" + new_token(), 45 chars, browser logins only
+pub const BROWSER_TOKEN_PREFIX: &str = "b~";
+pub fn new_browser_token() -> Result<String, getrandom::Error>;  // "b~" + new_token(), 45 chars, browser logins only
 pub fn hash_token(token: &str) -> String;                 // lowercase hex SHA-256
 pub fn secure_compare(a: &str, b: &str) -> bool;          // constant time
 ```
@@ -85,7 +85,7 @@ impl Manager {
     pub fn config(&self) -> &Config; pub fn store(&self) -> &Arc<dyn SessionStore>;
     pub async fn issue(&self, user_id, label) -> Result<(String, Session), tronc::Error>;
     pub async fn issue_for(&self, caller: Option<&Identity>, template: Session) -> Result<(String, Session), tronc::Error>;  // plain token
-    pub async fn issue_cookie_for(&self, req: &impl RequestView, template: Session) -> Result<(String, Session, HeaderValue), tronc::Error>;  // b- token + cookie
+    pub async fn issue_cookie_for(&self, req: &impl RequestView, template: Session) -> Result<(String, Session, HeaderValue), tronc::Error>;  // b~ token + cookie
     pub async fn end(&self, &Identity) -> Result<(), tronc::Error>;
     pub async fn list / revoke / revoke_user / revoke_logins / sweep;
     pub async fn authenticate(&self, req: &impl RequestView) -> Authentication;

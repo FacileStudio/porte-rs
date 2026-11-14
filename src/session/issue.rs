@@ -4,7 +4,7 @@ use tronc::Error;
 use super::Manager;
 use super::request::RequestView;
 use super::rules::ignore_missing;
-use crate::{Identity, Session, StoreError, hash_token, new_browser_token, new_token};
+use crate::{BROWSER_TOKEN_PREFIX, Identity, Session, StoreError, hash_token, new_browser_token, new_token};
 
 impl Manager {
     /// Mints a session, stores only its hash and returns the plaintext once. A non-empty
@@ -17,10 +17,11 @@ impl Manager {
     /// conditional on that identity or session still existing. A named token minted by a caller
     /// for their own account is bound to the caller's session or subject.
     ///
-    /// It mints a plain token: the CLI code exchange, the device exchange and named API tokens
-    /// use it, so their sessions are never [`Identity::browser_session`].
+    /// It mints a plain token, redrawn if it ever starts with [`crate::BROWSER_TOKEN_PREFIX`]:
+    /// the CLI code exchange, the device exchange and named API tokens use it, so their sessions
+    /// are never [`Identity::browser_session`].
     pub async fn issue_for(&self, caller: Option<&Identity>, template: Session) -> Result<(String, Session), Error> {
-        self.mint(caller, template, new_token).await
+        self.mint(caller, template, plain_token).await
     }
 
     /// Go `IssueCookieFor`: [`Self::issue_for`] for a browser login, plus the session cookie to
@@ -64,6 +65,15 @@ impl Manager {
             .await
             .or_else(ignore_missing)
             .map_err(|error| Error::internal("failed to end the session", error))
+    }
+}
+
+fn plain_token() -> Result<String, getrandom::Error> {
+    loop {
+        let token = new_token()?;
+        if !token.starts_with(BROWSER_TOKEN_PREFIX) {
+            return Ok(token);
+        }
     }
 }
 
