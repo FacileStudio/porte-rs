@@ -6,6 +6,22 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-14
+
+tronc-rs v0.5.1: dedupe client fix. No code, migration, route, CSRF or schema change.
+
+### Security
+
+- tronc-rs v0.5.1 (was v0.5.0). Its MCP pending-action dedupe now also matches the OAuth
+  `client_id`, so consent given to one client no longer lets another client of the same person
+  collect the result. An app on porte 0.8.1 must move to tronc v0.5.1 in the same change, or it
+  gets two `tronc` crates.
+
+### Changed
+
+- tronc-rs v0.5.1 adds `bulle::Error::Status::retry_after`. porte-rs matches no `Status`
+  pattern; an app that names every field of it needs `retry_after` or `..`.
+
 ## [0.8.0] - 2026-11-14
 
 Catches up with Go porte v0.20.1 (`mcpauth` v0.3.1, `directory` v0.5.0) and tronc-rs v0.5.0,
