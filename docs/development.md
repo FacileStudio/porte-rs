@@ -8,7 +8,7 @@ How to build, test and release the crate, and how the Go test vectors stay in st
 - Docker and `pg_isready` (psql 16 or later), for the scratch Postgres the database tests use
 - `filet` 0.18 or later, and `lefthook` through `mise install`
 - Network access to https://github.com/FacileStudio/tronc-rs, which `Cargo.toml` pins at tag
-  `v0.4.0`
+  `v0.5.1`
 
 ## Setup
 

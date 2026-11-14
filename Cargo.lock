@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "porte"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -2646,8 +2646,8 @@ dependencies = [
 
 [[package]]
 name = "tronc"
-version = "0.5.0"
-source = "git+https://github.com/FacileStudio/tronc-rs?tag=v0.5.0#c968bced2e503cd110392262f7653efc85aef9a5"
+version = "0.5.1"
+source = "git+https://github.com/FacileStudio/tronc-rs?tag=v0.5.1#9b249086e6c122e8a22b1927bb9c2f8bb8d2cc96"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -2657,6 +2657,7 @@ dependencies = [
  "hmac",
  "http",
  "http-body-util",
+ "httpdate",
  "ipnet",
  "reqwest",
  "rmcp",
