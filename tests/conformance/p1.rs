@@ -2,9 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::Body;
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use http::Request;
 use porte::session::{Deps, Manager};
-use porte::{Config, SESSION_COOKIE_NAME, hash_token, new_token, secure_compare};
+use porte::{
+    BROWSER_TOKEN_PREFIX, Config, SESSION_COOKIE_NAME, hash_token, new_browser_token, new_token, secure_compare,
+};
 use serde_json::{Value, json};
 
 use crate::common::memory::Sessions;
@@ -12,7 +16,7 @@ use crate::common::vectors::{cases, load, source_file};
 
 #[test]
 fn vectors_source_is_pinned() {
-    assert!(source_file().starts_with("github.com/FacileStudio/porte@v0.16.1\n"));
+    assert_eq!(source_file(), "v0.20.0\n");
 }
 
 #[test]
@@ -23,7 +27,9 @@ fn token_vector() {
         let got = match input["kind"].as_str().unwrap() {
             "hash" => json!({ "hash": hash_token(&text("token")) }),
             "compare" => json!({ "equal": secure_compare(&text("a"), &text("b")) }),
-            _ => token_shape(),
+            "new_token" => token_shape(),
+            "new_browser_token" => browser_token_shape(),
+            kind => panic!("{}: no runner for token kind {kind:?}", case["name"]),
         };
         assert_eq!(&got, want, "{}", case["name"]);
     }
@@ -33,6 +39,16 @@ fn token_shape() -> Value {
     let token = new_token().unwrap();
     assert!(token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
     json!({ "alphabet": "^[A-Za-z0-9_-]+$", "decoded_bytes": 32, "padding": token.contains('='), "token_length": token.len() })
+}
+
+fn browser_token_shape() -> Value {
+    let token = new_browser_token().unwrap();
+    let rest = token.strip_prefix(BROWSER_TOKEN_PREFIX).expect("a browser token starts with the prefix");
+    assert!(token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
+    json!({
+        "alphabet": "^[A-Za-z0-9_-]+$", "decoded_bytes_after_prefix": URL_SAFE_NO_PAD.decode(rest).unwrap().len(),
+        "padding": token.contains('='), "prefix": BROWSER_TOKEN_PREFIX, "token_length": token.len(),
+    })
 }
 
 #[tokio::test]

@@ -31,6 +31,7 @@ async fn a_cli_login_redirects_to_the_loopback_with_its_nonce_and_the_code_redee
     assert_eq!((first.status, first.header("cache-control").as_deref()), (200, Some("no-store")));
     let token: Value = serde_json::from_str(&first.body).unwrap();
     assert_eq!(token["user_id"], "7");
+    assert!(!token["token"].as_str().unwrap().starts_with(porte::BROWSER_TOKEN_PREFIX), "a CLI got a browser token");
     let me = Browser::default().send(&flow, bearer("/whoami", token["token"].as_str().unwrap())).await;
     assert_eq!(me.status, 200);
     let replay = exchange(&flow, &json!({ "code": query["code"] }).to_string(), "/auth/oidc/exchange").await;
@@ -77,6 +78,10 @@ async fn the_device_exchange_mints_this_apps_own_session() {
     assert_eq!((answer.status, answer.header("cache-control").as_deref()), (200, Some("no-store")));
     let minted: Value = serde_json::from_str(&answer.body).unwrap();
     assert_eq!(minted["user_id"], "7");
+    assert!(
+        !minted["token"].as_str().unwrap().starts_with(porte::BROWSER_TOKEN_PREFIX),
+        "a device got a browser token"
+    );
     let direct = Browser::default().send(&flow, bearer("/whoami", &token)).await;
     assert_eq!(direct.status, 401, "a facile-cli token opened a RequireAuth route directly");
 }

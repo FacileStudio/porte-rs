@@ -1,4 +1,4 @@
-//! `porte`, the auth kit for Facile Suite Rust apps: a port of Go `porte` v0.16.1.
+//! `porte`, the auth kit for Facile Suite Rust apps: a port of Go `porte` v0.20.0.
 //!
 //! It makes a Rust app a Registre client with the routes, cookie, tokens, tables and space
 //! model of a Go app. Each part sits behind a feature: `pg`, `oidc`, `directory`, `spaces`,
@@ -53,7 +53,7 @@ pub use identity::{Claims, Identity, StoredIdentity, TokenSet, normalize_locale}
 pub use session_revocation::SessionRevocation;
 pub use session_store::SessionStore;
 pub use store::{IdentityStore, LoginCode, LoginCodeStore, Session, StoreError, UserStore};
-pub use token::{hash_token, new_token, secure_compare};
+pub use token::{BROWSER_TOKEN_PREFIX, hash_token, new_browser_token, new_token, secure_compare};
 
 /// The browser session cookie. Over https it is written and read as `__Host-session`.
 pub const SESSION_COOKIE_NAME: &str = "session";

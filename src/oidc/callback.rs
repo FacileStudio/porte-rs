@@ -1,6 +1,5 @@
 use axum::extract::Request;
 use axum::response::Response;
-use http::HeaderValue;
 use http::request::Parts;
 use tronc::Error;
 
@@ -48,10 +47,9 @@ impl Kit {
     }
 
     async fn browser_session(&self, request: &Parts, bound: Session) -> Response {
-        match self.sessions().issue_for(None, bound).await {
-            Ok((token, _)) => {
+        match self.sessions().issue_cookie_for(request, bound).await {
+            Ok((_, _, cookie)) => {
                 let mut response = redirect(&self.config().success_url);
-                let cookie: HeaderValue = self.sessions().session_cookie(request, &token);
                 append_cookies(response.headers_mut(), [cookie]);
                 response
             }

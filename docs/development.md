@@ -94,14 +94,17 @@ through `POST /api/auth/oidc/device/exchange`; without it that route answers 404
 
 The vectors are Go `porte`'s `conformance/vectors/*.json` and the keys in
 `conformance/testdata/`. Every file has the envelope `{"source","subject","cases"}`.
-`tests/vectors/SOURCE` names the tag and commit they came from, and a test fails when a file
-names another.
+`tests/vectors/SOURCE` holds the porte tag they came from. Each file names its own Go module
+release in `source` (`porte`, `porte/mcpauth`, `porte/directory`), and a test fails when a file
+names another than `tests/common/vectors.rs` expects.
 
 ```sh
-sh scripts/sync-vectors.sh ~/Code/Facile/porte-wt-vectors v0.16.1
+sh scripts/sync-vectors.sh v0.20.0                       # clones FacileStudio/porte at the tag
+sh scripts/sync-vectors.sh ~/Code/Facile/porte v0.20.0   # or reads a local checkout with git show
 ```
 
-The script reads the checkout with `git show`, so it never touches its working tree.
+CI re-runs the first form against `tests/vectors/SOURCE` and fails on any difference, new files
+included. Bumping the tag means a new runner for every new vector file.
 
 ## Versioning
 

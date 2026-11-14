@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 
 use http::request::Parts;
-use tronc::mcp::{EXTRA_ACTOR, EXTRA_CLIENT_ID, VerifyFuture};
+use tronc::mcp::{EXTRA_ACTOR, EXTRA_CLIENT_ID, EXTRA_SUBJECT, VerifyFuture};
 
 use super::{TokenInfo, Verifier, VerifyError};
 
@@ -19,7 +19,11 @@ impl From<TokenInfo> for tronc::mcp::TokenInfo {
     fn from(info: TokenInfo) -> Self {
         let expires =
             SystemTime::UNIX_EPOCH + Duration::from_secs(info.expiration.unix_timestamp().max(0).unsigned_abs());
-        let extra = HashMap::from([(EXTRA_CLIENT_ID.to_owned(), info.client_id), (EXTRA_ACTOR.to_owned(), info.actor)]);
+        let extra = HashMap::from([
+            (EXTRA_CLIENT_ID.to_owned(), info.client_id),
+            (EXTRA_ACTOR.to_owned(), info.actor),
+            (EXTRA_SUBJECT.to_owned(), info.subject),
+        ]);
         tronc::mcp::TokenInfo { user_id: info.user_id, scopes: info.scopes, expires_at: Some(expires), extra }
     }
 }

@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "porte"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -1658,6 +1658,8 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
+ "serde",
+ "serde_json",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -2644,8 +2646,8 @@ dependencies = [
 
 [[package]]
 name = "tronc"
-version = "0.4.0"
-source = "git+https://github.com/FacileStudio/tronc-rs?tag=v0.4.0#7335b6bcf1956b4907f2a0f8e59d7ab8d9f73a41"
+version = "0.5.0"
+source = "git+https://github.com/FacileStudio/tronc-rs?tag=v0.5.0#c968bced2e503cd110392262f7653efc85aef9a5"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -2656,6 +2658,7 @@ dependencies = [
  "http",
  "http-body-util",
  "ipnet",
+ "reqwest",
  "rmcp",
  "serde",
  "serde_json",
@@ -2663,6 +2666,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "time",
+ "tokio",
  "tower",
  "tracing",
  "tracing-subscriber",

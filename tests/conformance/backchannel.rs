@@ -3,7 +3,8 @@ use http::Request;
 use serde_json::json;
 
 use crate::common::http::send;
-use crate::common::kit::{app, oidc_env};
+use crate::common::idp::fixture_client_with_keys;
+use crate::common::kit::{app_over, oidc_env};
 use crate::common::vectors::{cases, load};
 
 use super::csrf::issue;
@@ -12,7 +13,8 @@ use super::csrf::issue;
 async fn backchannel_logout_vector() {
     for case in cases(&load("backchannel_logout")) {
         let input = &case["input"];
-        let app = app(&oidc_env(&[]), None).await;
+        let keys = input["keys"].as_str().unwrap_or_default();
+        let app = app_over(&oidc_env(&[]), None, fixture_client_with_keys(keys)).await;
         for user in [7, 7, 8] {
             issue(&*app.sessions, user).await;
         }
