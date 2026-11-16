@@ -37,6 +37,8 @@ pub mod provider_endpoints;
 pub mod registre;
 pub mod revocations;
 #[cfg(feature = "oidc")]
+pub mod roles;
+#[cfg(feature = "oidc")]
 pub mod scripted;
 #[cfg(any(feature = "oidc", feature = "directory"))]
 pub mod sign;

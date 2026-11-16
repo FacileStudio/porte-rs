@@ -30,6 +30,9 @@ pub struct State {
     pub userinfo_subject: Option<String>,
     pub nonce_override: Option<String>,
     pub token_requests: usize,
+    pub token_fault: Option<u16>,
+    pub omit_id_token: bool,
+    pub on_refresh: Option<Arc<dyn Fn() + Send + Sync>>,
     pub jwks: Value,
     pub keys_down: bool,
     pub key_fetches: usize,
@@ -55,6 +58,9 @@ impl Provider {
             userinfo_subject: None,
             nonce_override: None,
             token_requests: 0,
+            token_fault: None,
+            omit_id_token: false,
+            on_refresh: None,
             jwks: jwks(),
             keys_down: false,
             key_fetches: 0,
@@ -122,7 +128,7 @@ impl Transport for Provider {
         match url.strip_prefix(ISSUER) {
             Some("/.well-known/openid-configuration") => Ok(answer(200, self.discovery())),
             Some("/keys") => self.keys(),
-            Some("/token") => Ok(self.token(&request)),
+            Some("/token") => self.token(&request),
             Some("/userinfo") => Ok(self.userinfo(&request)),
             _ => Err(TransportError(format!("no route to {url}"))),
         }

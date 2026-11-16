@@ -6,6 +6,49 @@ All notable changes to `porte-rs` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
+The roles refresh fails closed (issue #6). No migration, route, CSRF or schema change, and no
+signature change: an app only bumps the tag. It matters to an app that sets `OIDC_CLAIMS_SCOPE`.
+
+**Upgrade note.** With a claims scope set, each signed-in account now spends its refresh token
+once per `claims_ttl` (5 minutes) instead of once per access-token lifetime. A person whose
+Registre grant was revoked, or whose refresh token expired, is signed out on their next request
+and signs in again.
+
+### Security
+
+- **A refused refresh grant ends the session.** When the token endpoint answers 4xx
+  `invalid_grant` to the roles refresh, the kit clears the stored roles and tokens, deletes every
+  login of the account and answers the request 401 `session expired`. A named API token survives
+  and carries no roles until the person signs in again. Before, the cached roles were stamped
+  fresh on every failure, so a revoked role or a disabled account kept its access until the
+  session expired.
+- **A transient failure no longer stamps the roles.** No answer, a 5xx, another 4xx or an ID
+  token that fails verification keeps the cached roles for at most `claims_ttl` plus one hour
+  since the last good sync. After that the identity carries no roles until a refresh succeeds.
+  The kit asks again at most every 30 s per account.
+- **Stale roles are refreshed while the access token is still valid.** The refresh used to be
+  skipped until the access token expired, then reported as `the refresh response carried no
+  id_token`, so roles were at best an access-token lifetime old.
+
+### Added
+
+- `ClaimsSource::admit`, a provided method: `attach`, then whether the sign-in still stands. The
+  manager calls it instead of `attach` and refuses the request on `false`. An existing
+  `ClaimsSource` compiles unchanged.
+
+### Changed
+
+- A refresh response without an ID token is not an error: the grant is alive, the roles are kept
+  and stamped.
+- The tokens of a successful refresh are saved even when its ID token is rejected, because the
+  provider has already spent the old refresh token.
+- A refreshed ID token that names another subject is rejected; the roles stay unverified.
+- One roles refresh runs per account at a time, and `invalid_grant` is retried once when the
+  stored refresh token changed in the meantime.
+- The kit no longer calls `IdentityStore::mark_roles_synced`. The method stays on the trait.
+
 ## [0.8.1] - 2026-11-14
 
 tronc-rs v0.5.1: dedupe client fix. No code, migration, route, CSRF or schema change.

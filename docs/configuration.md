@@ -37,7 +37,7 @@ it) and a `token_exchange` seed entry for each audience and scope it asks for. S
 | `extra_scopes`, `extra_claims` | empty | Scopes to request on top of the four, and claims to copy raw into `Claims::extra` |
 | `session_ttl` | 30 days | Absolute session lifetime. Zero means the default |
 | `session_idle_ttl` | `None`, 7 days | Idle window of a browser session. `Some(Duration::ZERO)` disables it |
-| `claims_ttl` | 5 minutes | How long a cached roles claim is trusted |
+| `claims_ttl` | 5 minutes | How long a cached roles claim is trusted before the kit spends the refresh token to read it again. A revoked grant ends the session within this window |
 | `login_code_ttl` | 60 seconds | Window for a CLI to redeem its code |
 | `accept_legacy_cookie` | `false` | Also read the bare `session` cookie over https, for one migration |
 

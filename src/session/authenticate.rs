@@ -58,27 +58,30 @@ impl Manager {
             }
             Err(error) => return Err(Error::internal("failed to read the session", error)),
         };
-        let now = self.now();
-        if stored.expired(now) || self.idled_out(&stored, from_cookie, now) {
+        let identity = self.live(&stored, &hash, from_cookie, browser_session(from_cookie, &token, &stored)).await;
+        if identity.is_none() {
             clear(cookies);
             self.drop_dead(&hash).await;
-            return Err(Error::unauthorized("session expired"));
         }
-        let browser_session = browser_session(from_cookie, &token, &stored);
-        Ok(self.live(&stored, &hash, now, browser_session).await)
+        identity.ok_or_else(|| Error::unauthorized("session expired"))
     }
 
-    async fn live(&self, stored: &Session, hash: &str, now: OffsetDateTime, browser_session: bool) -> Identity {
+    async fn live(&self, stored: &Session, hash: &str, from_cookie: bool, browser_session: bool) -> Option<Identity> {
+        let now = self.now();
+        if stored.expired(now) || self.idled_out(stored, from_cookie, now) {
+            return None;
+        }
         let due = stored.last_used_at.is_none_or(|last| now - last >= TOUCH_INTERVAL);
         if due && let Err(error) = self.store().touch(hash, now).await {
             tracing::warn!(%error, "porte: failed to record session use");
         }
         let mut identity =
             Identity { user_id: stored.user_id, session_id: stored.id, browser_session, ..Identity::default() };
-        if let Some(claims) = self.claims() {
-            claims.attach(&mut identity).await;
-        }
-        identity
+        let admitted = match self.claims() {
+            Some(claims) => claims.admit(&mut identity).await,
+            None => true,
+        };
+        (admitted || stored.is_api_token()).then_some(identity)
     }
 
     async fn drop_dead(&self, hash: &str) {
