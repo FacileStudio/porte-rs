@@ -22,8 +22,11 @@ mod id_token;
 mod key_set;
 mod login;
 mod provision;
+mod role_refresh;
+mod roles;
 mod routes;
 mod sync;
+mod token_failure;
 mod tokens;
 
 use std::collections::HashMap;
@@ -77,6 +80,7 @@ struct Inner {
     cli_tokens: Option<Arc<bearer::BearerVerifier>>,
     erased: RwLock<Option<Arc<dyn ErasedSubjects>>>,
     provisioning: tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    role_attempts: roles::Attempts,
 }
 
 impl Kit {
@@ -106,6 +110,7 @@ impl Kit {
                 cli_tokens,
                 erased: RwLock::new(None),
                 provisioning: tokio::sync::Mutex::new(HashMap::new()),
+                role_attempts: roles::Attempts::default(),
             }),
         };
         if kit.inner.provider.is_some() && cfg.claims_enabled() {

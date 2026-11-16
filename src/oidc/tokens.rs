@@ -3,6 +3,7 @@ use base64::engine::general_purpose::STANDARD;
 use serde::Deserialize;
 
 use super::Kit;
+use super::token_failure::{TokenFailure, refusal};
 use crate::TokenSet;
 use crate::query::{encode_sorted, query_escape};
 
@@ -35,10 +36,11 @@ impl Kit {
             ("code_verifier".into(), verifier.into()),
         ])
         .await
+        .map_err(String::from)
     }
 
     /// The refresh grant. A response without a new refresh token keeps the old one.
-    pub(crate) async fn refresh(&self, tokens: &TokenSet) -> Result<Grant, String> {
+    pub(crate) async fn refresh(&self, tokens: &TokenSet) -> Result<Grant, TokenFailure> {
         if tokens.refresh_token.is_empty() {
             return Err("no refresh token".into());
         }
@@ -55,12 +57,14 @@ impl Kit {
     /// `oauth2.TokenSource` would hand them out.
     pub(crate) async fn fresh(&self, tokens: &TokenSet) -> Result<TokenSet, String> {
         match tokens.expiry {
-            Some(expiry) if expiry - EXPIRY_DELTA < self.now() => self.refresh(tokens).await.map(|grant| grant.tokens),
+            Some(expiry) if expiry - EXPIRY_DELTA < self.now() => {
+                self.refresh(tokens).await.map(|grant| grant.tokens).map_err(String::from)
+            }
             _ => Ok(tokens.clone()),
         }
     }
 
-    async fn token_request(&self, params: Vec<(String, String)>) -> Result<Grant, String> {
+    async fn token_request(&self, params: Vec<(String, String)>) -> Result<Grant, TokenFailure> {
         let provider = self.provider().ok_or("OIDC is not configured")?;
         let cfg = self.config();
         let basic = STANDARD.encode(format!("{}:{}", query_escape(&cfg.client_id), query_escape(&cfg.client_secret)));
@@ -71,7 +75,7 @@ impl Kit {
             .map_err(|error| error.to_string())?;
         let response = self.inner.http.send(request).await.map_err(|error| error.to_string())?;
         if !response.status().is_success() {
-            return Err(format!("token endpoint answered {}", response.status().as_u16()));
+            return Err(refusal(&response));
         }
         let body: TokenResponse = serde_json::from_slice(response.body()).map_err(|error| error.to_string())?;
         if body.access_token.is_empty() {

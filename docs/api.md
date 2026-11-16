@@ -101,7 +101,8 @@ pub struct Authentication { pub result: Result<Identity, tronc::Error>, pub set_
 pub fn append_cookies(out: &mut HeaderMap, values: impl IntoIterator<Item = HeaderValue>);
 pub trait RequestView { fn view(&self) -> View<'_> }  // http::Request<B>, http::request::Parts
 pub struct View<'a> { pub headers, pub extensions, pub method }
-#[async_trait] pub trait ClaimsSource { async fn attach(&self, &mut Identity) }
+#[async_trait] pub trait ClaimsSource { async fn attach(&self, &mut Identity);
+    async fn admit(&self, &mut Identity) -> bool /* provided: attach, then true */ }
 #[async_trait] pub trait JwtVerifier { async fn verify_jwt(&self, raw) -> Result<Identity, Box<dyn Error>> }
 ```
 
@@ -176,6 +177,22 @@ internal (`ProvisionError::Store` on provisioning) and creates nothing.
 
 `Kit::new` arms the bearer-JWT path of the session manager when `machine_audience` is set,
 and attaches itself as the claims source when `claims_scope` is set.
+
+**Roles refresh.** Once the cached roles are older than `claims_ttl`, the next authenticated
+request spends the refresh token and reads `roles` from the new ID token, whether or not the
+access token has expired. One refresh runs per account at a time.
+
+| The token endpoint answers | Roles | Session |
+|---|---|---|
+| a grant with an ID token | replaced, stamped | kept |
+| a grant without an ID token | kept, stamped: the grant is alive | kept |
+| 4xx `invalid_grant` | cleared in the identity and the store, with the stored tokens | the request gets 401 `session expired`; every login of the account is deleted. A named API token survives with no roles |
+| anything else: no answer, 5xx, another 4xx, an ID token that fails verification, no stored refresh token | kept, not stamped, for at most `claims_ttl` plus one hour since the last good sync, then empty | kept |
+
+After a failure the kit waits 30 s before it asks again for that account, so an outage of the
+provider does not add its timeout to every request. `invalid_grant` is retried once when the
+stored refresh token changed in the meantime (another replica or the token exchange rotated
+it). A custom `ClaimsSource` ends a session the same way by returning `false` from `admit`.
 
 | Route | Mounted | Answer |
 |---|---|---|

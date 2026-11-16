@@ -10,21 +10,46 @@ use super::provider::{CLIENT_ID, ISSUER, Provider, SECRET};
 use super::sign::{now, sign};
 
 impl Provider {
-    pub fn token(&self, request: &HttpRequest) -> HttpResponse {
+    pub fn token(&self, request: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        let fault = {
+            let mut state = self.state.lock().unwrap();
+            state.token_requests += 1;
+            state.token_fault
+        };
+        match fault {
+            Some(0) => Err(TransportError("the token endpoint is down".into())),
+            Some(status) => Ok(answer(status, json!({ "error": "temporarily_unavailable" }))),
+            None => Ok(self.grant(request)),
+        }
+    }
+
+    fn grant(&self, request: &HttpRequest) -> HttpResponse {
         let basic = request.headers().get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default();
         let expected = format!("Basic {}", STANDARD.encode(format!("{CLIENT_ID}:{SECRET}")));
         if basic != expected {
             return answer(401, json!({ "error": "invalid_client" }));
         }
         let form: HashMap<String, String> = url::form_urlencoded::parse(request.body()).into_owned().collect();
-        self.state.lock().unwrap().token_requests += 1;
         match form.get("grant_type").map(String::as_str) {
             Some("authorization_code") => self.code_grant(&form),
-            Some("refresh_token") if form.get("refresh_token").is_some_and(|t| t == "refresh-token") => {
-                answer(200, self.tokens(None))
-            }
+            Some("refresh_token") => self.refresh_grant(form.get("refresh_token")),
             _ => answer(400, json!({ "error": "invalid_grant" })),
         }
+    }
+
+    fn refresh_grant(&self, presented: Option<&String>) -> HttpResponse {
+        let hook = self.state.lock().unwrap().on_refresh.take();
+        if let Some(hook) = hook {
+            hook();
+        }
+        if presented.is_none_or(|token| token != "refresh-token") {
+            return answer(400, json!({ "error": "invalid_grant" }));
+        }
+        let mut tokens = self.tokens(None);
+        if self.state.lock().unwrap().omit_id_token {
+            tokens.as_object_mut().unwrap().remove("id_token");
+        }
+        answer(200, tokens)
     }
 
     fn code_grant(&self, form: &HashMap<String, String>) -> HttpResponse {
